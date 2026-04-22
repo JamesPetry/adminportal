@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { isSupabaseEnabled } from "@/lib/config";
 import { SignInForm } from "@/components/auth/sign-in-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -23,12 +22,6 @@ export default function SignInPage() {
         </CardHeader>
         <CardContent>
           <SignInForm />
-          {!isSupabaseEnabled ? (
-            <p className="mt-3 text-xs text-slate-500">
-              Local mode active. Use any email/password. Emails containing &quot;james&quot; or &quot;admin&quot; sign
-              in as admin.
-            </p>
-          ) : null}
         </CardContent>
       </Card>
     </main>

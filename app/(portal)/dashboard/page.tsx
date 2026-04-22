@@ -1,137 +1,184 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CircleCheckBig, Clock3, ListChecks } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, FileText, Files, Rocket, Wallet } from "lucide-react";
 
+import { PageShell } from "@/components/layout/page-shell";
 import { AnimatedReveal } from "@/components/shared/animated-reveal";
 import { EmptyState } from "@/components/shared/empty-state";
-import { PageShell } from "@/components/layout/page-shell";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { StatCard } from "@/components/shared/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { navItems } from "@/lib/navigation";
-import { getClientPortalView } from "@/lib/portal/server";
+import { WeekOutline } from "@/components/calendar/week-outline";
+import { formatCurrency } from "@/lib/format";
+import { getAgreementsByProjectId, getCalendarEventsByProjectId, getClientPortalView, getInvoicesByProjectId, getProjectFiles } from "@/lib/portal/server";
+import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Overview | Strat X Advisory Portal",
 };
 
 export default async function DashboardPage() {
-  const { payload } = await getClientPortalView();
+  const { payload, project } = await getClientPortalView();
   const projectOverview = payload.overview;
-  const activeWeek = payload.timeline.find((week) => week.status === "In Progress");
+  const invoices = await getInvoicesByProjectId(project.id);
+  const agreements = await getAgreementsByProjectId(project.id);
+  const { rows: files } = await getProjectFiles(project.id);
+  const calendarEvents = await getCalendarEventsByProjectId(project.id);
+  const pendingInvoices = invoices.filter((invoice) => invoice.status === "Pending" || invoice.status === "Overdue");
+  const pendingAgreementCount = agreements.filter((agreement) => agreement.status !== "fully_signed").length;
+  const totalPendingValue = pendingInvoices.reduce((acc, invoice) => acc + invoice.total, 0);
+  const milestones = payload.timeline.slice(0, 3);
 
   return (
     <PageShell title="Overview">
-      <div className="space-y-6">
+      <div className="space-y-7">
         <AnimatedReveal>
-          <Card className="border-slate-200 bg-white shadow-sm">
-            <CardContent className="space-y-4 p-7">
-              <StatusBadge status={projectOverview.projectStatus} />
-              <div className="space-y-3">
-                <h3 className="max-w-3xl text-3xl font-semibold tracking-tight text-slate-900">
-                  {projectOverview.projectName}
+          <section className="grid gap-8 lg:grid-cols-12">
+            <div className="space-y-6 lg:col-span-8">
+              <header className="space-y-2 px-1">
+                <h3 className="font-heading text-5xl font-medium tracking-tight text-zinc-900">
+                  Good morning, {projectOverview.clientName.split(" ")[0] || "there"}
                 </h3>
-                <p className="max-w-3xl text-sm leading-6 text-slate-600">
-                  Welcome to your project portal. This space gives you full visibility into the redesign process, design
-                  decisions, deliverables, payments, and feedback in one place.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-xs uppercase tracking-[0.14em] text-slate-500">Overall Progress</p>
-                  <Progress value={projectOverview.completionPercent} className="h-2 bg-slate-100" />
-                  <p className="mt-2 text-sm text-slate-600">{projectOverview.completionPercent}% complete</p>
+                <p className="text-sm text-zinc-600">Welcome back to your project workspace.</p>
+              </header>
+              <div className="grid gap-6 md:grid-cols-2">
+                <DashboardTile className="min-h-[260px] bg-[#fff9e5]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="editorial-card-title text-[2.8rem]">Project Summary</h4>
+                      <p className="editorial-kicker mt-2">{projectOverview.projectName}</p>
+                    </div>
+                    <span className="rounded-full bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                      {projectOverview.projectStatus}
+                    </span>
+                  </div>
+                  <div className="flex flex-1 items-center justify-center">
+                    <div className="relative flex h-28 w-28 items-center justify-center rounded-full border-8 border-zinc-300/40">
+                      <div className="absolute inset-0 rounded-full border-8 border-zinc-800 border-t-transparent border-r-transparent" />
+                      <span className="font-heading text-3xl text-zinc-900">{projectOverview.completionPercent}%</span>
+                    </div>
+                  </div>
+                </DashboardTile>
+
+                <DashboardTile className="min-h-[260px] bg-[#f9ebeb]">
+                  <div className="flex items-start justify-between">
+                    <h4 className="editorial-card-title text-[2.8rem]">Invoices</h4>
+                    <Wallet className="h-5 w-5 text-zinc-500/60" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-heading text-6xl font-light tracking-tight text-zinc-900">{formatCurrency(totalPendingValue || 0)}</p>
+                    <p className="editorial-kicker text-rose-700">{pendingInvoices.length} pending approval</p>
+                  </div>
+                </DashboardTile>
+
+                <DashboardTile className="min-h-[260px] bg-[#ecf5ee]">
+                  <div className="flex items-start justify-between">
+                    <h4 className="editorial-card-title text-[2.8rem]">Resources</h4>
+                    <Files className="h-5 w-5 text-zinc-500/60" />
+                  </div>
+                  <div className="space-y-4">
+                    <p className="max-w-sm text-sm leading-7 text-zinc-700">
+                      You have <span className="font-semibold">{files.length} files</span> in the project document library.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {["PDF", "PNG", "DOC"].map((label) => (
+                        <span key={label} className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/10 text-[10px] font-semibold text-zinc-700">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </DashboardTile>
+
+                <DashboardTile className="min-h-[260px] bg-[#ebf5f9]">
+                  <div className="flex items-start justify-between">
+                    <h4 className="editorial-card-title text-[2.8rem]">Agreements</h4>
+                    <CheckCircle2 className="h-5 w-5 text-zinc-500/60" />
+                  </div>
+                  <div className="space-y-3 text-xs uppercase tracking-[0.12em] text-zinc-700">
+                    <p className="inline-flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-cyan-700" />
+                      {agreements.length - pendingAgreementCount} contracts signed
+                    </p>
+                    <p className="inline-flex items-center gap-2 text-zinc-500">
+                      <span className="h-2 w-2 rounded-full bg-zinc-400" />
+                      {pendingAgreementCount} awaiting review
+                    </p>
+                  </div>
+                </DashboardTile>
+
+                <div className="md:col-span-2">
+                  <section className="editorial-shell min-h-[250px] border-zinc-300/80 bg-[#f7f4ed] p-5">
+                    <div className="mb-4 flex items-end justify-between gap-4">
+                      <div>
+                        <p className="editorial-kicker">Calendar overview</p>
+                        <h4 className="mt-2 font-heading text-5xl leading-none text-zinc-900">This Week at a Glance</h4>
+                      </div>
+                      <Link
+                        href="/calendar"
+                        className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700"
+                      >
+                        Open calendar
+                      </Link>
+                    </div>
+                    <WeekOutline events={calendarEvents} compact embedded showHeading={false} showOpenLink={false} />
+                  </section>
                 </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Estimated Completion</p>
-                  <p className="mt-2 text-sm text-slate-900">{projectOverview.estimatedCompletionDate}</p>
-                  <p className="mt-1 text-sm text-slate-500">Last updated {projectOverview.lastUpdated}</p>
-                </div>
               </div>
-            </CardContent>
-          </Card>
-        </AnimatedReveal>
+            </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <AnimatedReveal delay={0.05}>
-            <StatCard icon={Clock3} label="Current Status" value={projectOverview.projectStatus} hint="Execution phase" />
-          </AnimatedReveal>
-          <AnimatedReveal delay={0.08}>
-            <StatCard icon={CalendarDays} label="Current Week" value={activeWeek?.weekLabel ?? "No active week"} hint={activeWeek?.title} />
-          </AnimatedReveal>
-          <AnimatedReveal delay={0.11}>
-            <StatCard icon={CircleCheckBig} label="Client" value={projectOverview.clientName} hint="Primary stakeholder" />
-          </AnimatedReveal>
-        </div>
+            <aside className="space-y-6 lg:col-span-4">
+              <section className="editorial-shell rounded-[2rem] bg-[#f5f4ef] p-8">
+                <div className="mb-8 flex items-center justify-between">
+                  <h4 className="font-heading text-4xl italic tracking-tight text-zinc-900">Upcoming Milestones</h4>
+                  <CalendarDays className="h-4 w-4 text-zinc-400" />
+                </div>
+                <div className="space-y-4">
+                  {milestones.length ? (
+                    milestones.map((week) => (
+                      <article key={week.id} className="rounded-[1.5rem] bg-white p-5 shadow-[0_20px_40px_rgba(14,14,13,0.02)]">
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-700">{week.dateRange}</span>
+                          <Rocket className="h-4 w-4 text-rose-700" />
+                        </div>
+                        <h5 className="font-heading text-3xl text-zinc-900">{week.title}</h5>
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">{week.notes}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <EmptyState
+                      icon={CalendarDays}
+                      title="No milestones yet"
+                      description="Milestones will appear once timeline entries are added."
+                    />
+                  )}
+                </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <AnimatedReveal delay={0.12}>
-            <Card className="border-slate-200 bg-white shadow-sm lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold tracking-tight text-slate-900">This Week Focus</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {projectOverview.weeklySummary ? (
-                  <p className="text-sm leading-6 text-slate-600">{projectOverview.weeklySummary}</p>
-                ) : (
-                  <EmptyState
-                    icon={CalendarDays}
-                    title="No weekly update yet"
-                    description="Your project manager will add this week's progress summary here."
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </AnimatedReveal>
-
-          <AnimatedReveal delay={0.16}>
-            <Card className="border-blue-200 bg-blue-50/60 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-tight text-blue-900">
-                  <ListChecks className="h-4 w-4" />
-                  Next Action Required
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {projectOverview.nextActionRequired ? (
-                  <p className="text-sm leading-6 text-blue-900/85">{projectOverview.nextActionRequired}</p>
-                ) : (
-                  <p className="text-sm leading-6 text-blue-900/85">
-                    No immediate action is required right now. New client tasks will appear here.
+                <div className="mt-8 rounded-[1.5rem] bg-[#fbf9f5] p-6">
+                  <h5 className="font-heading text-3xl italic text-zinc-900">Need a partner?</h5>
+                  <p className="mt-2 text-xs leading-6 text-zinc-600">
+                    Schedule a direct strategy call with our execution team.
                   </p>
-                )}
-                <Link
-                  href="/client-actions"
-                  className="inline-flex items-center text-sm font-medium text-blue-700 hover:text-blue-900"
-                >
-                  View action items
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
-              </CardContent>
-            </Card>
-          </AnimatedReveal>
-        </div>
+                  <Link href="/client-actions" className="mt-5 inline-flex items-center gap-2 border-b border-zinc-900 pb-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-800">
+                    Book now <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              </section>
 
-        <AnimatedReveal delay={0.2}>
-          <Card className="border-slate-200 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold tracking-tight text-slate-900">Quick Links</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="group flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-700 transition hover:border-blue-200 hover:bg-blue-50/40"
-                >
-                  {item.title}
-                  <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:text-blue-700" />
+              <section className="editorial-shell grid grid-cols-1 gap-3 bg-white p-4 text-sm">
+                <Link href="/invoices" className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 text-zinc-700 hover:text-zinc-900">
+                  <span className="inline-flex items-center gap-2"><FileText className="h-4 w-4" />Invoice View</span>
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
-              ))}
-            </CardContent>
-          </Card>
+                <Link href="/files" className="flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3 text-zinc-700 hover:text-zinc-900">
+                  <span className="inline-flex items-center gap-2"><Files className="h-4 w-4" />File Library</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </section>
+            </aside>
+          </section>
         </AnimatedReveal>
       </div>
     </PageShell>
   );
+}
+
+function DashboardTile({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <article className={cn("editorial-card flex flex-col justify-between", className)}>{children}</article>;
 }

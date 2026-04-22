@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { PortalHeader } from "@/components/layout/portal-header";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { getClientPortalView } from "@/lib/portal/server";
+import { getAccessibleProjects, getClientPortalView } from "@/lib/portal/server";
 
 export async function PageShell({
   title,
@@ -11,10 +11,11 @@ export async function PageShell({
   title: string;
   children: ReactNode;
 }) {
-  const { context, client, payload } = await getClientPortalView();
+  const { context, client, payload, project } = await getClientPortalView();
+  const projects = await getAccessibleProjects();
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
+    <div className="mx-auto w-full max-w-[1700px] px-4 py-6 sm:px-10 sm:py-8">
       <MobileNav />
       <PortalHeader
         title={title}
@@ -22,6 +23,8 @@ export async function PageShell({
         clientName={client.name}
         projectStatus={payload.overview.projectStatus}
         lastUpdated={payload.overview.lastUpdated}
+        projects={projects}
+        activeProjectId={project.id}
       />
       {children}
     </div>

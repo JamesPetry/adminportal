@@ -7,11 +7,13 @@ import {
   MessageSquareQuote,
   Sparkles,
   TimerReset,
+  CalendarDays,
 } from "lucide-react";
 
 export const navItems = [
   { title: "Overview", href: "/dashboard", icon: LayoutGrid },
   { title: "Timeline", href: "/timeline", icon: TimerReset },
+  { title: "Calendar", href: "/calendar", icon: CalendarDays },
   { title: "Designs", href: "/designs", icon: Sparkles },
   { title: "Feedback", href: "/feedback", icon: MessageSquareQuote },
   { title: "Invoices", href: "/invoices", icon: CreditCard },

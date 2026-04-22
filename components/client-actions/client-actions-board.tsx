@@ -25,14 +25,14 @@ export function ClientActionsBoard({ items }: { items: ClientActionItem[] }) {
         />
       ) : null}
       {pending.map((item) => (
-        <Card key={item.id} className="border-slate-200 bg-white shadow-sm">
+        <Card key={item.id} className="editorial-shell border-zinc-300/80 bg-white shadow-none">
           <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <StatusBadge status={item.category} />
-                <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Due {item.dueDate}</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Due {item.dueDate}</p>
               </div>
-              <p className="text-base font-medium text-slate-900">{item.title}</p>
+              <p className="text-base font-medium text-zinc-900">{item.title}</p>
               {item.blocker ? (
                 <p className="mt-2 inline-flex items-start gap-1 text-sm text-amber-700">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -40,7 +40,7 @@ export function ClientActionsBoard({ items }: { items: ClientActionItem[] }) {
                 </p>
               ) : null}
             </div>
-            <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => toggleComplete(item.id)}>
+            <Button className="bg-zinc-900 text-white hover:bg-zinc-800" onClick={() => toggleComplete(item.id)}>
               <CheckCircle2 className="h-4 w-4" />
               Mark complete
             </Button>
@@ -50,7 +50,7 @@ export function ClientActionsBoard({ items }: { items: ClientActionItem[] }) {
 
       <Card
         className={cn(
-          "border-slate-200 bg-white shadow-sm",
+          "editorial-shell border-zinc-300/80 bg-white shadow-none",
           pending.length === 0 && "border-emerald-200 bg-emerald-50/70",
         )}
       >
@@ -58,7 +58,7 @@ export function ClientActionsBoard({ items }: { items: ClientActionItem[] }) {
           {pending.length === 0 ? (
             <p className="text-sm text-emerald-800">All action items are complete. Great momentum for final handoff.</p>
           ) : (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-zinc-600">
               {pending.length} client actions remain. Completing these keeps Week 4 delivery on schedule.
             </p>
           )}

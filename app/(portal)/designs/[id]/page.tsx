@@ -27,7 +27,7 @@ export default async function ConceptDetailsPage({ params }: ConceptPageProps) {
     <PageShell title={concept.title}>
       <AnimatedReveal>
         <div className="mb-4">
-          <Link href="/designs" className={cn(buttonVariants({ variant: "ghost" }), "text-slate-600")}>
+          <Link href="/designs" className={cn(buttonVariants({ variant: "ghost" }), "text-zinc-600")}>
             <ArrowLeft className="h-4 w-4" />
             Back to concepts
           </Link>
@@ -35,18 +35,24 @@ export default async function ConceptDetailsPage({ params }: ConceptPageProps) {
       </AnimatedReveal>
 
       <AnimatedReveal delay={0.05}>
-        <Card className="border-slate-200 bg-white shadow-sm">
+        <Card className="editorial-shell border-zinc-300/80 bg-white shadow-none">
           <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-xl font-semibold tracking-tight text-slate-900">{concept.title}</CardTitle>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{concept.shortDescription}</p>
+              <p className="editorial-kicker">Design Direction</p>
+              <CardTitle className="mt-2 font-heading text-6xl font-medium tracking-tight text-zinc-900">{concept.title}</CardTitle>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">{concept.shortDescription}</p>
             </div>
             <div className="space-y-2">
-              <StatusBadge status={concept.version} className="bg-slate-50 text-slate-700" />
+              <StatusBadge status={concept.version} className="bg-zinc-100 text-zinc-700" />
               <StatusBadge status={concept.status} />
             </div>
           </CardHeader>
           <CardContent className="grid gap-4 lg:grid-cols-2">
+            {concept.heroImageUrl ? (
+              <div className="overflow-hidden rounded-[1.2rem] border border-zinc-400/15 lg:col-span-2">
+                <img src={concept.heroImageUrl} alt={concept.title} className="h-72 w-full object-cover" />
+              </div>
+            ) : null}
             <DetailBlock title="Hero section notes" value={concept.details.heroNotes} />
             <DetailBlock title="Layout rationale" value={concept.details.layoutRationale} />
             <DetailBlock title="Typography rationale" value={concept.details.typographyRationale} />
@@ -59,11 +65,11 @@ export default async function ConceptDetailsPage({ params }: ConceptPageProps) {
               className="lg:col-span-2"
             />
             <div className="lg:col-span-2 flex flex-wrap gap-3 pt-2">
-              <Button className="bg-blue-600 text-white hover:bg-blue-700">
+              <Button className="bg-zinc-900 text-white hover:bg-zinc-800">
                 <MessageCircle className="h-4 w-4" />
                 Leave Feedback
               </Button>
-              <Button variant="outline" className="border-slate-200">
+              <Button variant="outline" className="border-zinc-200">
                 <Check className="h-4 w-4" />
                 Approve Direction
               </Button>
@@ -77,9 +83,9 @@ export default async function ConceptDetailsPage({ params }: ConceptPageProps) {
 
 function DetailBlock({ title, value, className }: { title: string; value: string; className?: string }) {
   return (
-    <div className={className}>
-      <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
+    <div className={cn("rounded-[1.2rem] border border-zinc-400/15 bg-zinc-50/70 p-4", className)}>
+      <p className="editorial-kicker">{title}</p>
+      <p className="mt-2 text-sm leading-7 text-zinc-700">{value}</p>
     </div>
   );
 }

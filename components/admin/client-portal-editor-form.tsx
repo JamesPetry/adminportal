@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { DesignConcept, InvoiceItem, ProjectOverview, WeekTimeline } from "@/lib/types";
+import type { DesignConcept, ProjectOverview, WeekTimeline } from "@/lib/types";
 
 type Props = {
   action: (formData: FormData) => void | Promise<void>;
@@ -15,7 +15,7 @@ type Props = {
   includedRevisions: number;
   timeline: WeekTimeline[];
   designs: DesignConcept[];
-  invoices: InvoiceItem[];
+  invoices: unknown[];
   feedbackJson: string;
   filesJson: string;
   projectDetailsJson: string;
@@ -32,8 +32,6 @@ const projectStatuses: ProjectOverview["projectStatus"][] = [
 const timelineStatuses: WeekTimeline["status"][] = ["Not Started", "In Progress", "Under Review", "Complete"];
 const designStatuses: DesignConcept["status"][] = ["Draft", "Ready for Review", "Approved", "Needs Feedback"];
 const versions: DesignConcept["version"][] = ["V1", "V2", "V3"];
-const invoiceStatuses: InvoiceItem["status"][] = ["Paid", "Pending", "Overdue", "Upcoming"];
-
 function createTimelineItem(): WeekTimeline {
   return {
     id: crypto.randomUUID(),
@@ -46,7 +44,18 @@ function createTimelineItem(): WeekTimeline {
     notes: "",
     details: "",
     linkedAssets: [],
+    imagePath: "",
   };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item));
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return [];
 }
 
 function createDesignItem(): DesignConcept {
@@ -57,6 +66,7 @@ function createDesignItem(): DesignConcept {
     status: "Draft",
     shortDescription: "",
     thumbnailLabel: "",
+    heroImagePath: "",
     details: {
       heroNotes: "",
       layoutRationale: "",
@@ -69,45 +79,43 @@ function createDesignItem(): DesignConcept {
   };
 }
 
-function createInvoiceItem(): InvoiceItem {
-  return {
-    id: "",
-    title: "",
-    issueDate: "",
-    dueDate: "",
-    amount: 0,
-    status: "Pending",
-  };
-}
-
 export function ClientPortalEditorForm({
   action,
   overview,
   includedRevisions,
   timeline,
   designs,
-  invoices,
+  invoices: _invoices,
   feedbackJson,
   filesJson,
   projectDetailsJson,
   clientActionsJson,
 }: Props) {
-  const [timelineItems, setTimelineItems] = useState<WeekTimeline[]>(timeline.length ? timeline : [createTimelineItem()]);
+  void _invoices;
+  const sanitizedTimeline = useMemo(
+    () =>
+      timeline.map((week) => ({
+        ...week,
+        checklist: normalizeStringArray(week.checklist),
+        linkedAssets: normalizeStringArray(week.linkedAssets),
+      })),
+    [timeline],
+  );
+  const [timelineItems, setTimelineItems] = useState<WeekTimeline[]>(
+    sanitizedTimeline.length ? sanitizedTimeline : [createTimelineItem()],
+  );
   const [designItems, setDesignItems] = useState<DesignConcept[]>(designs.length ? designs : [createDesignItem()]);
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>(invoices.length ? invoices : [createInvoiceItem()]);
 
   const timelineJson = useMemo(() => JSON.stringify(timelineItems), [timelineItems]);
   const designsJson = useMemo(() => JSON.stringify(designItems), [designItems]);
-  const invoicesJson = useMemo(() => JSON.stringify(invoiceItems), [invoiceItems]);
-
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="timelineJson" value={timelineJson} />
       <input type="hidden" name="designsJson" value={designsJson} />
-      <input type="hidden" name="invoicesJson" value={invoicesJson} />
+      <input type="hidden" name="invoicesJson" value="[]" />
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Overview</h2>
+      <section className="editorial-shell p-5">
+        <h2 className="text-base font-semibold text-zinc-900">Overview</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Field label="Project Name" name="projectName" defaultValue={overview.projectName} />
           <SelectField
@@ -135,23 +143,23 @@ export function ClientPortalEditorForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="editorial-shell p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-900">Timeline Editor</h2>
-          <Button type="button" variant="outline" className="border-slate-200" onClick={() => setTimelineItems((prev) => [...prev, createTimelineItem()])}>
+          <h2 className="text-base font-semibold text-zinc-900">Timeline Editor</h2>
+          <Button type="button" variant="outline" className="border-zinc-200" onClick={() => setTimelineItems((prev) => [...prev, createTimelineItem()])}>
             <Plus className="h-4 w-4" />
             Add week
           </Button>
         </div>
         <div className="space-y-4">
           {timelineItems.map((week, index) => (
-            <div key={week.id || index} className="rounded-xl border border-slate-200 p-4">
+            <div key={week.id || index} className="rounded-xl border border-zinc-200 p-4">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-900">Week {index + 1}</p>
+                <p className="text-sm font-medium text-zinc-900">Week {index + 1}</p>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="text-slate-500 hover:text-rose-600"
+                  className="text-zinc-500 hover:text-rose-600"
                   onClick={() => setTimelineItems((prev) => prev.filter((_, i) => i !== index))}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -166,6 +174,11 @@ export function ClientPortalEditorForm({
                   value={String(week.progress)}
                   onChange={(value) => updateTimeline(setTimelineItems, index, { progress: Number(value || 0) })}
                   placeholder="Progress %"
+                />
+                <InlineInput
+                  value={week.imagePath ?? ""}
+                  onChange={(value) => updateTimeline(setTimelineItems, index, { imagePath: value })}
+                  placeholder="Image storage path (optional)"
                 />
               </div>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -183,7 +196,7 @@ export function ClientPortalEditorForm({
                 />
                 <Textarea
                   rows={4}
-                  value={week.checklist.join("\n")}
+                  value={normalizeStringArray(week.checklist).join("\n")}
                   onChange={(event) =>
                     updateTimeline(setTimelineItems, index, { checklist: toLines(event.target.value) })
                   }
@@ -191,7 +204,7 @@ export function ClientPortalEditorForm({
                 />
                 <Textarea
                   rows={4}
-                  value={(week.linkedAssets ?? []).join("\n")}
+                  value={normalizeStringArray(week.linkedAssets).join("\n")}
                   onChange={(event) =>
                     updateTimeline(setTimelineItems, index, { linkedAssets: toLines(event.target.value) })
                   }
@@ -203,23 +216,23 @@ export function ClientPortalEditorForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="editorial-shell p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-900">Design Concepts Editor</h2>
-          <Button type="button" variant="outline" className="border-slate-200" onClick={() => setDesignItems((prev) => [...prev, createDesignItem()])}>
+          <h2 className="text-base font-semibold text-zinc-900">Design Concepts Editor</h2>
+          <Button type="button" variant="outline" className="border-zinc-200" onClick={() => setDesignItems((prev) => [...prev, createDesignItem()])}>
             <Plus className="h-4 w-4" />
             Add concept
           </Button>
         </div>
         <div className="space-y-4">
           {designItems.map((concept, index) => (
-            <div key={concept.id || index} className="rounded-xl border border-slate-200 p-4">
+            <div key={concept.id || index} className="rounded-xl border border-zinc-200 p-4">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-900">Concept {index + 1}</p>
+                <p className="text-sm font-medium text-zinc-900">Concept {index + 1}</p>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="text-slate-500 hover:text-rose-600"
+                  className="text-zinc-500 hover:text-rose-600"
                   onClick={() => setDesignItems((prev) => prev.filter((_, i) => i !== index))}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -234,6 +247,11 @@ export function ClientPortalEditorForm({
                   value={concept.thumbnailLabel}
                   onChange={(value) => updateDesign(setDesignItems, index, { thumbnailLabel: value })}
                   placeholder="Thumbnail label"
+                />
+                <InlineInput
+                  value={concept.heroImagePath ?? ""}
+                  onChange={(value) => updateDesign(setDesignItems, index, { heroImagePath: value })}
+                  placeholder="Hero image storage path (optional)"
                 />
               </div>
               <div className="mt-3 space-y-3">
@@ -295,46 +313,9 @@ export function ClientPortalEditorForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-900">Invoices Editor</h2>
-          <Button type="button" variant="outline" className="border-slate-200" onClick={() => setInvoiceItems((prev) => [...prev, createInvoiceItem()])}>
-            <Plus className="h-4 w-4" />
-            Add invoice
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {invoiceItems.map((invoice, index) => (
-            <div key={`${invoice.id}-${index}`} className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-3">
-              <InlineInput value={invoice.id} onChange={(value) => updateInvoice(setInvoiceItems, index, { id: value })} placeholder="INV-001" />
-              <InlineInput value={invoice.title} onChange={(value) => updateInvoice(setInvoiceItems, index, { title: value })} placeholder="Invoice title" />
-              <InlineSelect value={invoice.status} options={invoiceStatuses} onChange={(value) => updateInvoice(setInvoiceItems, index, { status: value as InvoiceItem["status"] })} />
-              <InlineInput value={invoice.issueDate} onChange={(value) => updateInvoice(setInvoiceItems, index, { issueDate: value })} placeholder="Issue date" />
-              <InlineInput value={invoice.dueDate} onChange={(value) => updateInvoice(setInvoiceItems, index, { dueDate: value })} placeholder="Due date" />
-              <InlineInput
-                value={String(invoice.amount)}
-                onChange={(value) => updateInvoice(setInvoiceItems, index, { amount: Number(value || 0) })}
-                placeholder="Amount"
-              />
-              <div className="md:col-span-3 flex justify-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="text-slate-500 hover:text-rose-600"
-                  onClick={() => setInvoiceItems((prev) => prev.filter((_, i) => i !== index))}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Advanced JSON (Optional)</h2>
-        <p className="mt-1 text-xs text-slate-500">
+      <section className="editorial-shell p-5">
+        <h2 className="text-base font-semibold text-zinc-900">Advanced JSON (Optional)</h2>
+        <p className="mt-1 text-xs text-zinc-500">
           Keep using JSON for remaining sections until those editors are added.
         </p>
         <div className="mt-3 space-y-3">
@@ -346,7 +327,7 @@ export function ClientPortalEditorForm({
       </section>
 
       <div className="flex justify-end">
-        <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">
+        <Button type="submit" className="bg-zinc-900 text-white hover:bg-zinc-800">
           Save portal content
         </Button>
       </div>
@@ -381,7 +362,7 @@ function SelectField({
         id={name}
         name={name}
         defaultValue={defaultValue}
-        className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900"
+        className="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -427,7 +408,7 @@ function InlineSelect({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900"
+      className="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900"
     >
       {options.map((option) => (
         <option key={option} value={option}>
@@ -473,14 +454,6 @@ function updateDesignDetail(
         : item,
     ),
   );
-}
-
-function updateInvoice(
-  setState: Dispatch<SetStateAction<InvoiceItem[]>>,
-  index: number,
-  patch: Partial<InvoiceItem>,
-) {
-  setState((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
 }
 
 function toLines(value: string) {

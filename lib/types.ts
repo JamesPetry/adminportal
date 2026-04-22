@@ -1,5 +1,6 @@
 export type ProjectStatus = "Not Started" | "In Progress" | "Under Review" | "Complete";
 export type UserRole = "admin" | "client";
+export type InvitationStatus = "invited" | "active";
 
 export type InvoiceStatus = "Paid" | "Pending" | "Overdue" | "Upcoming";
 
@@ -29,6 +30,8 @@ export interface WeekTimeline {
   notes: string;
   details: string;
   linkedAssets?: string[];
+  imagePath?: string;
+  imageUrl?: string;
 }
 
 export interface DesignConceptDetail {
@@ -48,6 +51,8 @@ export interface DesignConcept {
   status: ConceptStatus;
   shortDescription: string;
   thumbnailLabel: string;
+  heroImagePath?: string;
+  heroImageUrl?: string;
   details: DesignConceptDetail;
 }
 
@@ -85,6 +90,13 @@ export interface ProjectDetails {
   redesignGoals: string[];
   keyContacts: Array<{ name: string; role: string; email: string }>;
   stagingUrl: string;
+  proposalSections?: Array<{
+    id: string;
+    title: string;
+    body: string;
+    imagePath?: string;
+    imageUrl?: string;
+  }>;
   faq: Array<{ question: string; answer: string }>;
 }
 
@@ -102,6 +114,19 @@ export interface ClientRecord {
   slug: string;
 }
 
+export interface ProjectRecord {
+  id: string;
+  name: string;
+  slug: string;
+  clientName: string;
+  status: ProjectStatus;
+  completionPercent: number;
+  estimatedCompletionDate: string | null;
+  lastUpdated: string;
+  weeklySummary: string;
+  nextActionRequired: string;
+}
+
 export interface UserContext {
   userId: string;
   email: string;
@@ -110,14 +135,127 @@ export interface UserContext {
   client: ClientRecord | null;
 }
 
+export interface ViewerContext {
+  userId: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+}
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  email: string;
+  role: UserRole;
+  invitationStatus: InvitationStatus;
+}
+
 export interface PortalPayload {
   overview: ProjectOverview;
   timeline: WeekTimeline[];
   designs: DesignConcept[];
-  invoices: InvoiceItem[];
+  invoices: InvoiceItem[]; // legacy cards (still used for dashboard summary)
   feedback: FeedbackItem[];
-  files: PortalFile[];
+  files: PortalFile[]; // legacy cards (canonical files come from project_files table)
   projectDetails: ProjectDetails;
   clientActions: ClientActionItem[];
   includedRevisions: number;
+}
+
+export type CalendarEventKind =
+  | "invoice_issue"
+  | "invoice_due"
+  | "timeline"
+  | "client_action"
+  | "manual";
+
+export type CalendarEventColorToken = "finance" | "timeline" | "approvals" | "custom";
+export type CalendarEntryType = "image" | "invoice" | "agreement" | "note" | "file";
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  endDate?: string | null;
+  kind: CalendarEventKind;
+  sourceRef: string;
+  colorToken: CalendarEventColorToken;
+  status?: string | null;
+  entryType?: CalendarEntryType;
+  notes?: string | null;
+  downloadUrl?: string | null;
+  linkedFileName?: string | null;
+  previewUrl?: string | null;
+  createdBy?: string | null;
+}
+
+export interface CalendarEventRecord {
+  id: string;
+  projectId: string;
+  title: string;
+  startDate: string;
+  endDate: string | null;
+  colorToken: CalendarEventColorToken;
+  notes: string | null;
+  entryType: CalendarEntryType;
+  invoiceId?: string | null;
+  agreementId?: string | null;
+  projectFileId?: string | null;
+  storagePath?: string | null;
+  sourceRef?: string | null;
+  createdBy?: string | null;
+}
+
+export interface ProjectFileRecord {
+  id: string;
+  projectId: string;
+  category: string;
+  fileName: string;
+  storagePath: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  createdAt: string;
+}
+
+export type AgreementStatus =
+  | "draft"
+  | "sent"
+  | "pending_client_signature"
+  | "pending_admin_signature"
+  | "fully_signed";
+
+export interface AgreementRecord {
+  id: string;
+  projectId: string;
+  title: string;
+  status: AgreementStatus;
+  content: string;
+  clientSigName: string | null;
+  clientSignedAt: string | null;
+  adminSigName: string | null;
+  adminSignedAt: string | null;
+  sentAt: string | null;
+}
+
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface InvoiceRecord {
+  id: string;
+  projectId: string;
+  invoiceNumber: string;
+  title: string;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  currency: string;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  notes: string | null;
+  lineItems: InvoiceLineItem[];
 }
