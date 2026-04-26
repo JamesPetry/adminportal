@@ -85,13 +85,26 @@ export default async function InvoiceViewPage({ params }: Props) {
                     <span>{formatCurrency(invoice.subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-zinc-600">
-                    <span>Tax</span>
+                    <span>Tax {invoice.taxEnabled ? `(${(invoice.taxRate * 100).toFixed(2)}%)` : "(off)"}</span>
                     <span>{formatCurrency(invoice.taxAmount)}</span>
                   </div>
                   <div className="flex justify-between border-t border-zinc-200 pt-3 text-lg font-semibold text-zinc-900">
                     <span>Total</span>
                     <span>{formatCurrency(invoice.total)}</span>
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1rem] border border-zinc-200 bg-zinc-50/60 p-5">
+                <p className="editorial-kicker">Pay Details</p>
+                <div className="mt-3 grid gap-2 text-sm text-zinc-700 md:grid-cols-2">
+                  <p><span className="font-medium text-zinc-900">Name:</span> {invoice.paymentDetails.name}</p>
+                  <p><span className="font-medium text-zinc-900">ABN:</span> {invoice.paymentDetails.abn}</p>
+                  <p><span className="font-medium text-zinc-900">PayID:</span> {invoice.paymentDetails.payId}</p>
+                  <p><span className="font-medium text-zinc-900">Reference:</span> {invoice.paymentDetails.reference}</p>
+                  <p className="md:col-span-2">
+                    <span className="font-medium text-zinc-900">Amount:</span> {formatCurrency(invoice.paymentDetails.amount)}
+                  </p>
                 </div>
               </div>
 

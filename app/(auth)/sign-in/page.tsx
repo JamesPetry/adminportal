@@ -4,7 +4,7 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Sign In | James Marlin Client Dashboard",
+  title: "Sign In | Strat X Advisory Client Portal",
 };
 
 export default function SignInPage() {
@@ -14,7 +14,7 @@ export default function SignInPage() {
         <CardHeader className="space-y-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Client Portal</p>
           <CardTitle className="text-2xl font-semibold tracking-tight text-slate-900">
-            James Marlin Client Dashboard
+            Strat X Advisory Client Portal
           </CardTitle>
           <p className="text-sm text-slate-600">
             Sign in to access your private project workspace and latest deliverables.

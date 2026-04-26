@@ -13,6 +13,19 @@ export const metadata = {
   title: "Overview | Strat X Advisory Portal",
 };
 
+function getSydneyGreeting() {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-AU", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "Australia/Sydney",
+    }).format(new Date()),
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 export default async function DashboardPage() {
   const { payload, project } = await getClientPortalView();
   const projectOverview = payload.overview;
@@ -22,8 +35,17 @@ export default async function DashboardPage() {
   const calendarEvents = await getCalendarEventsByProjectId(project.id);
   const pendingInvoices = invoices.filter((invoice) => invoice.status === "Pending" || invoice.status === "Overdue");
   const pendingAgreementCount = agreements.filter((agreement) => agreement.status !== "fully_signed").length;
+  const waitingAgreement =
+    agreements.find((agreement) => agreement.workflowState === "pending_review" && agreement.status !== "fully_signed") ??
+    agreements.find((agreement) => agreement.status !== "fully_signed") ??
+    null;
+  const waitingInvoice =
+    pendingInvoices.find((invoice) => invoice.status === "Pending" || invoice.status === "Overdue") ??
+    invoices[0] ??
+    null;
   const totalPendingValue = pendingInvoices.reduce((acc, invoice) => acc + invoice.total, 0);
   const milestones = payload.timeline.slice(0, 3);
+  const greeting = getSydneyGreeting();
 
   return (
     <PageShell title="Overview">
@@ -33,7 +55,7 @@ export default async function DashboardPage() {
             <div className="space-y-6 lg:col-span-8">
               <header className="space-y-2 px-1">
                 <h3 className="font-heading text-5xl font-medium tracking-tight text-zinc-900">
-                  Good morning, {projectOverview.clientName.split(" ")[0] || "there"}
+                  {greeting}, {projectOverview.clientName || "there"}
                 </h3>
                 <p className="text-sm text-zinc-600">Welcome back to your project workspace.</p>
               </header>
@@ -64,6 +86,15 @@ export default async function DashboardPage() {
                   <div className="space-y-2">
                     <p className="font-heading text-6xl font-light tracking-tight text-zinc-900">{formatCurrency(totalPendingValue || 0)}</p>
                     <p className="editorial-kicker text-rose-700">{pendingInvoices.length} pending approval</p>
+                    {waitingInvoice ? (
+                      <Link
+                        href={`/invoices/${waitingInvoice.id}`}
+                        className="inline-flex items-center gap-2 border-b border-zinc-700 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-700"
+                      >
+                        Open invoice
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : null}
                   </div>
                 </DashboardTile>
 
@@ -100,6 +131,15 @@ export default async function DashboardPage() {
                       <span className="h-2 w-2 rounded-full bg-zinc-400" />
                       {pendingAgreementCount} awaiting review
                     </p>
+                    {waitingAgreement ? (
+                      <Link
+                        href={`/agreements/${waitingAgreement.id}`}
+                        className="inline-flex items-center gap-2 border-b border-zinc-700 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-700"
+                      >
+                        Open waiting for review
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : null}
                   </div>
                 </DashboardTile>
 
@@ -155,7 +195,7 @@ export default async function DashboardPage() {
                   <p className="mt-2 text-xs leading-6 text-zinc-600">
                     Schedule a direct strategy call with our execution team.
                   </p>
-                  <Link href="/client-actions" className="mt-5 inline-flex items-center gap-2 border-b border-zinc-900 pb-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-800">
+                  <Link href="/calendar" className="mt-5 inline-flex items-center gap-2 border-b border-zinc-900 pb-1 text-xs font-bold uppercase tracking-[0.18em] text-zinc-800">
                     Book now <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>

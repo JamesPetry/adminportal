@@ -11,7 +11,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
   const supabase = await createClient();
   const { data: invoiceRow } = await supabase
     .from("invoices")
-    .select("id, project_id, invoice_number, title, issue_date, due_date, status, currency, subtotal, tax_amount, total, notes")
+    .select(
+      "id, project_id, invoice_number, title, issue_date, due_date, status, currency, subtotal, tax_enabled, tax_rate, tax_amount, total, notes, payment_name, payment_abn, payment_payid, payment_reference, payment_amount",
+    )
     .eq("id", id)
     .single<{
       id: string;
@@ -23,9 +25,16 @@ export async function GET(_request: NextRequest, { params }: Params) {
       status: InvoiceRecord["status"];
       currency: string;
       subtotal: number;
+      tax_enabled: boolean | null;
+      tax_rate: number | null;
       tax_amount: number;
       total: number;
       notes: string | null;
+      payment_name: string | null;
+      payment_abn: string | null;
+      payment_payid: string | null;
+      payment_reference: string | null;
+      payment_amount: number | null;
     }>();
 
   if (!invoiceRow) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -39,13 +48,16 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, name, slug, client_name, status, completion_percent, estimated_completion_date, last_updated, weekly_summary, next_action_required")
+    .select(
+      "id, name, slug, client_name, business_signatory_name, status, completion_percent, estimated_completion_date, last_updated, weekly_summary, next_action_required",
+    )
     .eq("id", invoiceRow.project_id)
     .single<{
       id: string;
       name: string;
       slug: string;
       client_name: string;
+      business_signatory_name: string | null;
       status: ProjectRecord["status"];
       completion_percent: number;
       estimated_completion_date: string | null;
@@ -77,9 +89,18 @@ export async function GET(_request: NextRequest, { params }: Params) {
     status: invoiceRow.status,
     currency: invoiceRow.currency,
     subtotal: Number(invoiceRow.subtotal),
+    taxEnabled: Boolean(invoiceRow.tax_enabled ?? true),
+    taxRate: Number(invoiceRow.tax_rate ?? 0.1),
     taxAmount: Number(invoiceRow.tax_amount),
     total: Number(invoiceRow.total),
     notes: invoiceRow.notes,
+    paymentDetails: {
+      name: invoiceRow.payment_name ?? "JamesMarlinDesign",
+      abn: invoiceRow.payment_abn ?? "63 611 535 706",
+      payId: invoiceRow.payment_payid ?? "0423 624 863",
+      reference: invoiceRow.payment_reference ?? "0019",
+      amount: Number(invoiceRow.payment_amount ?? 2150),
+    },
     lineItems: (lineRows ?? []).map((line) => ({
       id: line.id,
       description: line.description,
@@ -95,7 +116,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
     name: project.name,
     slug: project.slug,
     clientName: project.client_name,
-    status: "In Progress",
+    businessSignatoryName: project.business_signatory_name,
+    status: project.status,
     completionPercent: project.completion_percent,
     estimatedCompletionDate: project.estimated_completion_date,
     lastUpdated: project.last_updated,

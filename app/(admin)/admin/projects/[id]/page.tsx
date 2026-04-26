@@ -7,11 +7,15 @@ import {
   assignClientToProject,
   createAgreement,
   createInvoice,
+  updateInvoice,
   deleteAgreement,
   deleteProjectFile,
   deleteInvoice,
   saveClientPortal,
   sendAgreement,
+  updateAgreementWorkflowState,
+  resetAgreementSignatures,
+  updateProjectBusinessSignatory,
   createCalendarEvent,
   deleteCalendarEvent,
   uploadPortalSectionImage,
@@ -65,6 +69,16 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
 
         <section className="editorial-shell p-5">
           <h2 className="text-base font-semibold text-zinc-900">Client Assignment & Access</h2>
+          <form action={updateProjectBusinessSignatory} className="mt-3 flex flex-wrap items-end gap-2">
+            <input type="hidden" name="projectId" value={project.id} />
+            <label className="text-xs uppercase tracking-[0.12em] text-zinc-500">Business signatory name</label>
+            <input
+              name="businessSignatoryName"
+              defaultValue={project.businessSignatoryName ?? "James Marlin Studio"}
+              className="h-9 min-w-72 rounded-lg border border-zinc-300 px-3 text-sm"
+            />
+            <button className="h-9 rounded-lg border border-zinc-300 px-4 text-sm hover:bg-zinc-50">Save signatory</button>
+          </form>
           <form action={assignClientToProject.bind(null, project.id)} className="mt-3 flex flex-wrap gap-2">
             <input
               name="clientEmail"
@@ -142,6 +156,36 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
                 <input name="lineDescription" placeholder="Line item 2" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm col-span-2" />
                 <input name="lineQty" placeholder="Qty" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" defaultValue="1" />
                 <input name="lineUnitPrice" placeholder="Unit $" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" defaultValue="0" />
+                <input name="lineDescription" placeholder="Line item 3" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm col-span-2" />
+                <input name="lineQty" placeholder="Qty" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" defaultValue="1" />
+                <input name="lineUnitPrice" placeholder="Unit $" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" defaultValue="0" />
+                <input name="lineDescription" placeholder="Line item 4" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm col-span-2" />
+                <input name="lineQty" placeholder="Qty" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" defaultValue="1" />
+                <input name="lineUnitPrice" placeholder="Unit $" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" defaultValue="0" />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="taxEnabled" defaultChecked />
+                  Include tax
+                </label>
+                <input
+                  name="taxRatePercent"
+                  type="number"
+                  step="0.01"
+                  defaultValue="10"
+                  className="h-9 w-28 rounded-lg border border-zinc-300 px-3 text-sm"
+                />
+                <span className="text-xs text-zinc-500">Tax rate %</span>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Pay details</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <input name="paymentName" placeholder="Name" defaultValue="JamesMarlinDesign" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                  <input name="paymentAbn" placeholder="ABN" defaultValue="63 611 535 706" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                  <input name="paymentPayId" placeholder="PayID" defaultValue="0423 624 863" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                  <input name="paymentReference" placeholder="Reference" defaultValue="0019" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                  <input name="paymentAmount" placeholder="Amount" defaultValue="2150" type="number" step="0.01" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm col-span-2" />
+                </div>
               </div>
               <textarea name="notes" rows={3} placeholder="Notes" className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
               <button className="h-9 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800">
@@ -150,22 +194,111 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
             </form>
             <div className="mt-4 space-y-2">
               {invoices.map((invoice) => (
-                <div key={invoice.id} className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm">
-                  <span>{invoice.invoiceNumber} · {invoice.title}</span>
-                  <div className="flex items-center gap-2">
+                <details key={invoice.id} className="rounded-lg border border-zinc-200 px-3 py-2 text-sm">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2">
+                    <span>{invoice.invoiceNumber} · {invoice.title}</span>
                     <a href={`/api/invoices/${invoice.id}/pdf`} className="inline-flex items-center gap-1 text-zinc-700 hover:text-zinc-900">
                       <Download className="h-4 w-4" />
                       PDF
                     </a>
-                    <form action={deleteInvoice}>
-                      <input type="hidden" name="invoiceId" value={invoice.id} />
-                      <input type="hidden" name="projectId" value={project.id} />
-                      <button className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50">
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </div>
+                  </summary>
+                  <form action={updateInvoice} className="mt-3 grid gap-2 rounded-lg border border-zinc-200 bg-zinc-50/40 p-3">
+                    <input type="hidden" name="invoiceId" value={invoice.id} />
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <input name="title" defaultValue={invoice.title} className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input name="issueDate" type="date" defaultValue={invoice.issueDate} className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                      <input name="dueDate" type="date" defaultValue={invoice.dueDate} className="h-9 rounded-lg border border-zinc-300 px-3 text-sm" />
+                    </div>
+                    <select name="status" defaultValue={invoice.status} className="h-9 rounded-lg border border-zinc-300 px-3 text-sm">
+                      <option>Pending</option>
+                      <option>Paid</option>
+                      <option>Overdue</option>
+                      <option>Upcoming</option>
+                    </select>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[...invoice.lineItems, ...Array.from({ length: Math.max(0, 6 - invoice.lineItems.length) }).map(() => null)].map(
+                        (line, index) => (
+                          <div key={`${invoice.id}-${index}`} className="contents">
+                            <input
+                              name="lineDescription"
+                              defaultValue={line?.description ?? ""}
+                              placeholder={`Line ${index + 1}`}
+                              className="h-9 rounded-lg border border-zinc-300 px-3 text-sm col-span-2"
+                            />
+                            <input
+                              name="lineQty"
+                              defaultValue={line?.quantity ?? 1}
+                              className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                            />
+                            <input
+                              name="lineUnitPrice"
+                              defaultValue={line?.unitPrice ?? 0}
+                              className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                            />
+                          </div>
+                        ),
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="taxEnabled" defaultChecked={invoice.taxEnabled} />
+                        Include tax
+                      </label>
+                      <input
+                        name="taxRatePercent"
+                        type="number"
+                        step="0.01"
+                        defaultValue={(invoice.taxRate * 100).toFixed(2)}
+                        className="h-9 w-28 rounded-lg border border-zinc-300 px-3 text-sm"
+                      />
+                      <span className="text-xs text-zinc-500">Tax rate %</span>
+                    </div>
+                    <div className="rounded-lg border border-zinc-200 bg-white p-3">
+                      <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Pay details</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <input
+                          name="paymentName"
+                          defaultValue={invoice.paymentDetails.name}
+                          className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                        />
+                        <input
+                          name="paymentAbn"
+                          defaultValue={invoice.paymentDetails.abn}
+                          className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                        />
+                        <input
+                          name="paymentPayId"
+                          defaultValue={invoice.paymentDetails.payId}
+                          className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                        />
+                        <input
+                          name="paymentReference"
+                          defaultValue={invoice.paymentDetails.reference}
+                          className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                        />
+                        <input
+                          name="paymentAmount"
+                          type="number"
+                          step="0.01"
+                          defaultValue={invoice.paymentDetails.amount}
+                          className="h-9 rounded-lg border border-zinc-300 px-3 text-sm col-span-2"
+                        />
+                      </div>
+                    </div>
+                    <textarea name="notes" rows={2} defaultValue={invoice.notes ?? ""} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+                    <div className="flex flex-wrap gap-2">
+                      <button className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">Save changes</button>
+                    </div>
+                  </form>
+                  <form action={deleteInvoice} className="mt-2">
+                    <input type="hidden" name="invoiceId" value={invoice.id} />
+                    <input type="hidden" name="projectId" value={project.id} />
+                    <button className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50">
+                      Delete
+                    </button>
+                  </form>
+                </details>
               ))}
             </div>
           </div>
@@ -190,7 +323,9 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
                 <div key={agreement.id} className="rounded-lg border border-zinc-200 px-3 py-2 text-sm">
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-zinc-900">{agreement.title}</p>
-                    <span className="text-xs uppercase tracking-wide text-zinc-500">{agreement.status}</span>
+                    <span className="text-xs uppercase tracking-wide text-zinc-500">
+                      {agreement.status} · {agreement.workflowState}
+                    </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <a href={`/api/agreements/${agreement.id}/pdf`} className="inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-1 text-xs">
@@ -204,6 +339,17 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
                         Mark as sent
                       </button>
                     </form>
+                    <form action={updateAgreementWorkflowState} className="flex gap-1">
+                      <input type="hidden" name="agreementId" value={agreement.id} />
+                      <input type="hidden" name="projectId" value={project.id} />
+                      <select name="workflowState" defaultValue={agreement.workflowState} className="h-7 rounded-md border border-zinc-300 px-2 text-xs">
+                        <option value="pending_review">Pending review</option>
+                        <option value="actioned">Actioned</option>
+                      </select>
+                      <button className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                        Set state
+                      </button>
+                    </form>
                     <form action={signAgreement} className="flex gap-1">
                       <input type="hidden" name="agreementId" value={agreement.id} />
                       <input type="hidden" name="projectId" value={project.id} />
@@ -214,6 +360,13 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
                       />
                       <button className="rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
                         Sign
+                      </button>
+                    </form>
+                    <form action={resetAgreementSignatures}>
+                      <input type="hidden" name="agreementId" value={agreement.id} />
+                      <input type="hidden" name="projectId" value={project.id} />
+                      <button className="rounded-md border border-amber-200 px-2 py-1 text-xs text-amber-800 hover:bg-amber-50">
+                        Reset signatures
                       </button>
                     </form>
                     <form action={deleteAgreement}>

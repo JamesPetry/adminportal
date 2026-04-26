@@ -1,7 +1,23 @@
  "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Expand, FileImage, FileText, Handshake, Link2, Loader2, Pencil, Plus, Save, StickyNote, Trash2, Upload, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Expand,
+  FileImage,
+  FileText,
+  Handshake,
+  Link2,
+  Loader2,
+  Pencil,
+  Plus,
+  Save,
+  StickyNote,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 
 import { createCalendarEntry, deleteCalendarEntry, updateCalendarEntry } from "@/app/(portal)/calendar-actions";
 import type { CalendarEntryType, CalendarEvent, UserRole } from "@/lib/types";
@@ -49,6 +65,7 @@ function isImageEvent(event: CalendarEvent) {
 
 export function FullCalendar({ events, invoices, agreements, projectId, viewerRole, viewerUserId, year, month }: Props) {
   const [items, setItems] = useState(events);
+  const [visibleDate, setVisibleDate] = useState(new Date(year, month, 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [entryType, setEntryType] = useState<CalendarEntryType>("note");
   const [title, setTitle] = useState("");
@@ -62,9 +79,12 @@ export function FullCalendar({ events, invoices, agreements, projectId, viewerRo
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const start = new Date(year, month, 1);
-  const end = new Date(year, month + 1, 0);
-  const days = Array.from({ length: end.getDate() }).map((_, idx) => new Date(year, month, idx + 1));
+  const start = useMemo(() => new Date(visibleDate.getFullYear(), visibleDate.getMonth(), 1), [visibleDate]);
+  const end = useMemo(() => new Date(visibleDate.getFullYear(), visibleDate.getMonth() + 1, 0), [visibleDate]);
+  const days = useMemo(
+    () => Array.from({ length: end.getDate() }).map((_, idx) => new Date(start.getFullYear(), start.getMonth(), idx + 1)),
+    [end, start],
+  );
 
   const byDay = new Map<string, CalendarEvent[]>();
   for (const event of items) {
@@ -79,7 +99,7 @@ export function FullCalendar({ events, invoices, agreements, projectId, viewerRo
   const todayKey = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    const thisMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const thisMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}`;
     if (!selectedDate || !selectedDate.startsWith(thisMonth)) {
       if (todayKey.startsWith(thisMonth)) {
         setSelectedDate(todayKey);
@@ -87,7 +107,7 @@ export function FullCalendar({ events, invoices, agreements, projectId, viewerRo
       }
       setSelectedDate(`${thisMonth}-01`);
     }
-  }, [month, selectedDate, todayKey, year]);
+  }, [selectedDate, start, todayKey]);
 
   const resetForm = () => {
     setTitle("");
@@ -207,9 +227,29 @@ export function FullCalendar({ events, invoices, agreements, projectId, viewerRo
   return (
     <section className="editorial-shell border-zinc-300/80 bg-white p-6">
       <header className="mb-5">
-        <h3 className="font-heading text-6xl leading-none text-zinc-900">
-          {start.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-        </h3>
+        <div className="flex items-end justify-between gap-4">
+          <h3 className="font-heading text-6xl leading-none text-zinc-900">
+            {start.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500"
+              onClick={() => setVisibleDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500"
+              onClick={() => setVisibleDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </header>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid grid-cols-7 gap-2 rounded-[1.3rem] border border-zinc-200/70 bg-[#fcfbf8] p-3">

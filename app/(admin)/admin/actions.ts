@@ -20,6 +20,27 @@ function toSlug(value: string) {
     .replace(/(^-|-$)+/g, "");
 }
 
+function parseInvoiceLines(formData: FormData) {
+  const lineDescriptions = formData.getAll("lineDescription").map(String);
+  const lineQty = formData.getAll("lineQty").map((value) => Number(value));
+  const lineUnit = formData.getAll("lineUnitPrice").map((value) => Number(value));
+  return lineDescriptions
+    .map((description, i) => ({
+      description: description.trim(),
+      quantity: Number.isFinite(lineQty[i]) ? lineQty[i] : 1,
+      unitPrice: Number.isFinite(lineUnit[i]) ? lineUnit[i] : 0,
+    }))
+    .filter((line) => line.description);
+}
+
+function computeInvoiceTotals(lineItems: Array<{ quantity: number; unitPrice: number }>, taxEnabled: boolean, taxRate: number) {
+  const subtotal = lineItems.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+  const normalizedTaxRate = Math.max(0, taxRate);
+  const taxAmount = taxEnabled ? subtotal * normalizedTaxRate : 0;
+  const total = subtotal + taxAmount;
+  return { subtotal, taxAmount, total, normalizedTaxRate };
+}
+
 export async function createProject(formData: FormData) {
   const context = await getUserContext();
   if (context.role !== "admin") throw new Error("Only admin users can create projects.");
@@ -126,6 +147,25 @@ export async function assignClientToProject(
   revalidatePath("/admin");
   revalidatePath(`/admin/projects/${projectId}`);
   if (redirectAfter) redirect(`/admin/projects/${projectId}`);
+}
+
+export async function updateProjectBusinessSignatory(formData: FormData) {
+  const context = await getUserContext();
+  if (context.role !== "admin") throw new Error("Only admin users can update business signatory.");
+  const projectId = String(formData.get("projectId") ?? "");
+  const businessSignatoryName = String(formData.get("businessSignatoryName") ?? "").trim();
+  if (!projectId) throw new Error("Missing project id.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ business_signatory_name: businessSignatoryName || "James Marlin Studio", updated_at: new Date().toISOString() })
+    .eq("id", projectId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/project-details");
+  revalidatePath(`/admin/projects/${projectId}`);
+  redirect(`/admin/projects/${projectId}`);
 }
 
 export async function deleteProject(formData: FormData) {
@@ -336,17 +376,20 @@ export async function createInvoice(projectId: string, formData: FormData) {
   const dueDate = String(formData.get("dueDate") ?? "");
   const status = String(formData.get("status") ?? "Pending");
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const paymentName = String(formData.get("paymentName") ?? "JamesMarlinDesign").trim() || "JamesMarlinDesign";
+  const paymentAbn = String(formData.get("paymentAbn") ?? "63 611 535 706").trim() || "63 611 535 706";
+  const paymentPayId = String(formData.get("paymentPayId") ?? "0423 624 863").trim() || "0423 624 863";
+  const paymentReference = String(formData.get("paymentReference") ?? "0019").trim() || "0019";
+  const paymentAmount = Number(formData.get("paymentAmount") ?? "2150");
 
-  const lineDescriptions = formData.getAll("lineDescription").map(String);
-  const lineQty = formData.getAll("lineQty").map((value) => Number(value));
-  const lineUnit = formData.getAll("lineUnitPrice").map((value) => Number(value));
-  const lineItems = lineDescriptions
-    .map((description, i) => ({ description: description.trim(), quantity: lineQty[i] ?? 1, unitPrice: lineUnit[i] ?? 0 }))
-    .filter((line) => line.description);
-
-  const subtotal = lineItems.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const taxAmount = subtotal * 0.1;
-  const total = subtotal + taxAmount;
+  const lineItems = parseInvoiceLines(formData);
+  const taxEnabled = formData.has("taxEnabled");
+  const taxRatePercent = Number(formData.get("taxRatePercent") ?? "10");
+  const { subtotal, taxAmount, total, normalizedTaxRate } = computeInvoiceTotals(
+    lineItems,
+    taxEnabled,
+    (Number.isFinite(taxRatePercent) ? taxRatePercent : 10) / 100,
+  );
 
   const { data: invoice, error } = await supabase
     .from("invoices")
@@ -358,9 +401,16 @@ export async function createInvoice(projectId: string, formData: FormData) {
       due_date: dueDate,
       status,
       subtotal,
+      tax_enabled: taxEnabled,
+      tax_rate: normalizedTaxRate,
       tax_amount: taxAmount,
       total,
       notes,
+      payment_name: paymentName,
+      payment_abn: paymentAbn,
+      payment_payid: paymentPayId,
+      payment_reference: paymentReference,
+      payment_amount: Number.isFinite(paymentAmount) ? paymentAmount : 2150,
     })
     .select("id")
     .single<{ id: string }>();
@@ -384,6 +434,78 @@ export async function createInvoice(projectId: string, formData: FormData) {
   redirect(`/admin/projects/${projectId}`);
 }
 
+export async function updateInvoice(formData: FormData) {
+  const context = await getUserContext();
+  if (context.role !== "admin") throw new Error("Only admin users can update invoices.");
+
+  const invoiceId = String(formData.get("invoiceId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!invoiceId || !projectId) throw new Error("Missing invoice metadata.");
+
+  const title = String(formData.get("title") ?? "").trim();
+  const issueDate = String(formData.get("issueDate") ?? "");
+  const dueDate = String(formData.get("dueDate") ?? "");
+  const status = String(formData.get("status") ?? "Pending");
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const paymentName = String(formData.get("paymentName") ?? "JamesMarlinDesign").trim() || "JamesMarlinDesign";
+  const paymentAbn = String(formData.get("paymentAbn") ?? "63 611 535 706").trim() || "63 611 535 706";
+  const paymentPayId = String(formData.get("paymentPayId") ?? "0423 624 863").trim() || "0423 624 863";
+  const paymentReference = String(formData.get("paymentReference") ?? "0019").trim() || "0019";
+  const paymentAmount = Number(formData.get("paymentAmount") ?? "2150");
+  const taxEnabled = formData.has("taxEnabled");
+  const taxRatePercent = Number(formData.get("taxRatePercent") ?? "10");
+  const lineItems = parseInvoiceLines(formData);
+  const { subtotal, taxAmount, total, normalizedTaxRate } = computeInvoiceTotals(
+    lineItems,
+    taxEnabled,
+    (Number.isFinite(taxRatePercent) ? taxRatePercent : 10) / 100,
+  );
+
+  const supabase = await createClient();
+  const { error: updateError } = await supabase
+    .from("invoices")
+    .update({
+      title,
+      issue_date: issueDate,
+      due_date: dueDate,
+      status,
+      subtotal,
+      tax_enabled: taxEnabled,
+      tax_rate: normalizedTaxRate,
+      tax_amount: taxAmount,
+      total,
+      notes,
+      payment_name: paymentName,
+      payment_abn: paymentAbn,
+      payment_payid: paymentPayId,
+      payment_reference: paymentReference,
+      payment_amount: Number.isFinite(paymentAmount) ? paymentAmount : 2150,
+    })
+    .eq("id", invoiceId)
+    .eq("project_id", projectId);
+  if (updateError) throw new Error(updateError.message);
+
+  const { error: deleteLinesError } = await supabase.from("invoice_line_items").delete().eq("invoice_id", invoiceId);
+  if (deleteLinesError) throw new Error(deleteLinesError.message);
+
+  if (lineItems.length) {
+    const { error: insertLinesError } = await supabase.from("invoice_line_items").insert(
+      lineItems.map((line, index) => ({
+        invoice_id: invoiceId,
+        description: line.description,
+        quantity: line.quantity,
+        unit_price: line.unitPrice,
+        sort_order: index,
+      })),
+    );
+    if (insertLinesError) throw new Error(insertLinesError.message);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/admin/projects/${projectId}`);
+  redirect(`/admin/projects/${projectId}`);
+}
+
 export async function createAgreement(projectId: string, formData: FormData) {
   const context = await getUserContext();
   if (context.role !== "admin") throw new Error("Only admin users can create agreements.");
@@ -396,6 +518,7 @@ export async function createAgreement(projectId: string, formData: FormData) {
     title,
     content,
     status: "draft",
+    workflow_state: "pending_review",
   });
   if (error) throw new Error(error.message);
 
@@ -448,6 +571,7 @@ export async function sendAgreement(formData: FormData) {
     .from("agreements")
     .update({
       status: "pending_client_signature",
+      workflow_state: "pending_review",
       sent_at: new Date().toISOString(),
     })
     .eq("id", agreementId);
@@ -455,6 +579,58 @@ export async function sendAgreement(formData: FormData) {
 
   revalidatePath(`/admin/projects/${projectId}`);
   revalidatePath("/project-details");
+  redirect(`/admin/projects/${projectId}`);
+}
+
+export async function updateAgreementWorkflowState(formData: FormData) {
+  const context = await getUserContext();
+  if (context.role !== "admin") throw new Error("Only admin users can update agreements.");
+  const agreementId = String(formData.get("agreementId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  const workflowState = String(formData.get("workflowState") ?? "pending_review");
+  if (!agreementId || !projectId) throw new Error("Missing agreement metadata.");
+  if (!["pending_review", "actioned"].includes(workflowState)) throw new Error("Invalid workflow state.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("agreements")
+    .update({ workflow_state: workflowState })
+    .eq("id", agreementId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/project-details");
+  revalidatePath(`/admin/projects/${projectId}`);
+  redirect(`/admin/projects/${projectId}`);
+}
+
+export async function resetAgreementSignatures(formData: FormData) {
+  const context = await getUserContext();
+  if (context.role !== "admin") throw new Error("Only admin users can reset agreements.");
+  const agreementId = String(formData.get("agreementId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!agreementId || !projectId) throw new Error("Missing agreement metadata.");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("agreements")
+    .update({
+      status: "draft",
+      workflow_state: "pending_review",
+      client_sig_name: null,
+      client_signed_at: null,
+      admin_sig_name: null,
+      admin_signed_at: null,
+      sent_at: null,
+    })
+    .eq("id", agreementId)
+    .eq("project_id", projectId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/project-details");
+  revalidatePath(`/admin/projects/${projectId}`);
   redirect(`/admin/projects/${projectId}`);
 }
 

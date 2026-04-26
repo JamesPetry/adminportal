@@ -24,6 +24,7 @@ create table if not exists public.projects (
   name text not null,
   slug text not null unique,
   client_name text not null,
+  business_signatory_name text not null default 'James Marlin Studio',
   status text not null default 'Not Started' check (status in ('Not Started', 'In Progress', 'Under Review', 'Complete')),
   completion_percent integer not null default 0 check (completion_percent >= 0 and completion_percent <= 100),
   estimated_completion_date date,
@@ -84,9 +85,16 @@ create table if not exists public.invoices (
   status text not null default 'Pending' check (status in ('Paid', 'Pending', 'Overdue', 'Upcoming')),
   currency text not null default 'AUD',
   subtotal numeric(12,2) not null default 0,
+  tax_enabled boolean not null default true,
+  tax_rate numeric(6,4) not null default 0.10,
   tax_amount numeric(12,2) not null default 0,
   total numeric(12,2) not null default 0,
   notes text,
+  payment_name text not null default 'JamesMarlinDesign',
+  payment_abn text not null default '63 611 535 706',
+  payment_payid text not null default '0423 624 863',
+  payment_reference text not null default '0019',
+  payment_amount numeric(12,2) not null default 2150,
   pdf_path text,
   created_at timestamptz not null default now(),
   unique (project_id, invoice_number)
@@ -106,6 +114,7 @@ create table if not exists public.agreements (
   project_id uuid not null references public.projects (id) on delete cascade,
   title text not null,
   status text not null default 'draft' check (status in ('draft', 'sent', 'pending_client_signature', 'pending_admin_signature', 'fully_signed')),
+  workflow_state text not null default 'pending_review' check (workflow_state in ('pending_review', 'actioned')),
   content text not null default '',
   pdf_path text,
   client_sig_name text,
@@ -115,6 +124,26 @@ create table if not exists public.agreements (
   sent_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.projects add column if not exists business_signatory_name text not null default 'James Marlin Studio';
+alter table public.invoices add column if not exists tax_enabled boolean not null default true;
+alter table public.invoices add column if not exists tax_rate numeric(6,4) not null default 0.10;
+alter table public.invoices add column if not exists payment_name text not null default 'JamesMarlinDesign';
+alter table public.invoices add column if not exists payment_abn text not null default '63 611 535 706';
+alter table public.invoices add column if not exists payment_payid text not null default '0423 624 863';
+alter table public.invoices add column if not exists payment_reference text not null default '0019';
+alter table public.invoices add column if not exists payment_amount numeric(12,2) not null default 2150;
+alter table public.agreements add column if not exists workflow_state text not null default 'pending_review';
+do $$
+begin
+  alter table public.agreements
+    drop constraint if exists agreements_workflow_state_check;
+  alter table public.agreements
+    add constraint agreements_workflow_state_check
+    check (workflow_state in ('pending_review', 'actioned'));
+exception when undefined_table then
+  null;
+end $$;
 
 create table if not exists public.project_calendar_events (
   id uuid primary key default gen_random_uuid(),

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signIn(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
@@ -14,7 +14,14 @@ export async function signIn(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  // Backward compatibility for users who were seeded with .com while using .com.au.
+  if (error && email.endsWith("@stratxadvisory.com.au")) {
+    const fallbackEmail = email.replace("@stratxadvisory.com.au", "@stratxadvisory.com");
+    const retry = await supabase.auth.signInWithPassword({ email: fallbackEmail, password });
+    error = retry.error;
+  }
 
   if (error) {
     return { error: error.message };

@@ -170,21 +170,24 @@ export default async function ProjectDetailsPage() {
                     <div>
                       <p className="editorial-kicker">Agreement</p>
                       <h3 className="mt-2 font-heading text-4xl text-zinc-900">{agreement.title}</h3>
-                      <p className="mt-2 text-xs uppercase tracking-[0.12em] text-zinc-500">{agreement.status.replaceAll("_", " ")}</p>
+                      <p className="mt-2 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                        {agreement.status.replaceAll("_", " ")}
+                        {agreement.workflowState === "pending_review" && agreement.status !== "fully_signed" ? " · waiting for review" : ""}
+                      </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/agreements/${agreement.id}`}
+                        className={cn(buttonVariants({ variant: "outline" }), "border-zinc-300 bg-white")}
+                      >
+                        Open full view
+                      </Link>
                       <Link
                         href={`/api/agreements/${agreement.id}/pdf`}
                         className={cn(buttonVariants({ variant: "outline" }), "border-zinc-300 bg-white")}
                       >
                         <Download className="h-4 w-4" />
                         Download
-                      </Link>
-                      <Link
-                        href={`/api/agreements/${agreement.id}/pdf`}
-                        className={cn(buttonVariants(), "bg-zinc-900 text-white")}
-                      >
-                        Open full view
                       </Link>
                     </div>
                   </div>
@@ -204,6 +207,9 @@ export default async function ProjectDetailsPage() {
                           Sign agreement
                         </button>
                       </div>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Signing records your legal signature name and timestamp and cannot be edited unless reset by admin.
+                      </p>
                     </form>
                   ) : null}
                 </article>

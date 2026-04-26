@@ -119,6 +119,7 @@ export interface ProjectRecord {
   name: string;
   slug: string;
   clientName: string;
+  businessSignatoryName?: string | null;
   status: ProjectStatus;
   completionPercent: number;
   estimatedCompletionDate: string | null;
@@ -223,12 +224,14 @@ export type AgreementStatus =
   | "pending_client_signature"
   | "pending_admin_signature"
   | "fully_signed";
+export type AgreementWorkflowState = "pending_review" | "actioned";
 
 export interface AgreementRecord {
   id: string;
   projectId: string;
   title: string;
   status: AgreementStatus;
+  workflowState: AgreementWorkflowState;
   content: string;
   clientSigName: string | null;
   clientSignedAt: string | null;
@@ -244,6 +247,14 @@ export interface InvoiceLineItem {
   unitPrice: number;
 }
 
+export interface InvoicePaymentDetails {
+  name: string;
+  abn: string;
+  payId: string;
+  reference: string;
+  amount: number;
+}
+
 export interface InvoiceRecord {
   id: string;
   projectId: string;
@@ -254,8 +265,11 @@ export interface InvoiceRecord {
   status: InvoiceStatus;
   currency: string;
   subtotal: number;
+  taxEnabled: boolean;
+  taxRate: number;
   taxAmount: number;
   total: number;
   notes: string | null;
+  paymentDetails: InvoicePaymentDetails;
   lineItems: InvoiceLineItem[];
 }

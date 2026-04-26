@@ -12,7 +12,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
   const { data: row } = await supabase
     .from("agreements")
     .select(
-      "id, project_id, title, status, content, client_sig_name, client_signed_at, admin_sig_name, admin_signed_at, sent_at",
+      "id, project_id, title, status, workflow_state, content, client_sig_name, client_signed_at, admin_sig_name, admin_signed_at, sent_at",
     )
     .eq("id", id)
     .single<{
@@ -20,6 +20,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       project_id: string;
       title: string;
       status: AgreementRecord["status"];
+      workflow_state: AgreementRecord["workflowState"] | null;
       content: string;
       client_sig_name: string | null;
       client_signed_at: string | null;
@@ -31,13 +32,16 @@ export async function GET(_request: NextRequest, { params }: Params) {
   if (!row) return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
   const { data: project } = await supabase
     .from("projects")
-    .select("id, name, slug, client_name, status, completion_percent, estimated_completion_date, last_updated, weekly_summary, next_action_required")
+    .select(
+      "id, name, slug, client_name, business_signatory_name, status, completion_percent, estimated_completion_date, last_updated, weekly_summary, next_action_required",
+    )
     .eq("id", row.project_id)
     .single<{
       id: string;
       name: string;
       slug: string;
       client_name: string;
+      business_signatory_name: string | null;
       status: ProjectRecord["status"];
       completion_percent: number;
       estimated_completion_date: string | null;
@@ -66,6 +70,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     projectId: row.project_id,
     title: row.title,
     status: row.status,
+    workflowState: row.workflow_state ?? "pending_review",
     content: row.content,
     clientSigName: row.client_sig_name,
     clientSignedAt: row.client_signed_at,
@@ -81,6 +86,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     name: project.name,
     slug: project.slug,
     clientName: project.client_name,
+    businessSignatoryName: project.business_signatory_name,
     status: project.status,
     completionPercent: project.completion_percent,
     estimatedCompletionDate: project.estimated_completion_date,
@@ -93,7 +99,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="agreement-${agreement.id}.pdf"`,
+      "Content-Disposition": `attachment; filename="${agreement.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `agreement-${agreement.id}`}.pdf"`,
     },
   });
 }

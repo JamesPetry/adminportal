@@ -26,6 +26,7 @@ type ProjectRow = {
   name: string;
   slug: string;
   client_name: string;
+  business_signatory_name: string | null;
   status: ProjectRecord["status"];
   completion_percent: number;
   estimated_completion_date: string | null;
@@ -42,6 +43,10 @@ type PortalRow = {
   client_actions: PortalPayload["clientActions"] | null;
   included_revisions: number | null;
 };
+
+function normalizeClientName(name: string) {
+  return name.trim().toLowerCase() === "norman" ? "Strat X Advisory" : name;
+}
 
 export const getViewerContext = cache(async (): Promise<ViewerContext> => {
   const supabase = await createClient();
@@ -78,7 +83,7 @@ export async function getAccessibleProjects() {
   let query = supabase
     .from("projects")
     .select(
-      "id, name, slug, client_name, status, completion_percent, estimated_completion_date, last_updated, weekly_summary, next_action_required",
+      "id, name, slug, client_name, business_signatory_name, status, completion_percent, estimated_completion_date, last_updated, weekly_summary, next_action_required",
     )
     .eq("archived", false)
     .order("updated_at", { ascending: false });
@@ -100,7 +105,8 @@ export async function getAccessibleProjects() {
     id: row.id,
     name: row.name,
     slug: row.slug,
-    clientName: row.client_name,
+    clientName: normalizeClientName(row.client_name),
+    businessSignatoryName: row.business_signatory_name,
     status: row.status,
     completionPercent: row.completion_percent,
     estimatedCompletionDate: row.estimated_completion_date,
@@ -250,9 +256,62 @@ export async function getProjectFiles(projectId: string) {
 
 export async function getInvoicesByProjectId(projectId: string): Promise<InvoiceRecord[]> {
   const supabase = await createClient();
-  const { data: invoices } = await supabase
+  const mapInvoices = (
+    invoices:
+      | Array<{
+          id: string;
+          project_id: string;
+          invoice_number: string;
+          title: string;
+          issue_date: string;
+          due_date: string;
+          status: InvoiceRecord["status"];
+          currency: string;
+          subtotal: number;
+          tax_enabled?: boolean | null;
+          tax_rate?: number | null;
+          tax_amount: number;
+          total: number;
+          notes: string | null;
+          payment_name?: string | null;
+          payment_abn?: string | null;
+          payment_payid?: string | null;
+          payment_reference?: string | null;
+          payment_amount?: number | null;
+        }>
+      | null,
+    itemMap: Map<string, InvoiceLineItem[]>,
+  ) =>
+    (invoices ?? []).map((invoice) => ({
+      id: invoice.id,
+      projectId: invoice.project_id,
+      invoiceNumber: invoice.invoice_number,
+      title: invoice.title,
+      issueDate: invoice.issue_date,
+      dueDate: invoice.due_date,
+      status: invoice.status,
+      currency: invoice.currency,
+      subtotal: Number(invoice.subtotal),
+      taxEnabled: Boolean(invoice.tax_enabled ?? true),
+      taxRate: Number(invoice.tax_rate ?? 0.1),
+      taxAmount: Number(invoice.tax_amount),
+      total: Number(invoice.total),
+      notes: invoice.notes,
+      paymentDetails: {
+        name: invoice.payment_name ?? "JamesMarlinDesign",
+        abn: invoice.payment_abn ?? "63 611 535 706",
+        payId: invoice.payment_payid ?? "0423 624 863",
+        reference: invoice.payment_reference ?? "0019",
+        amount: Number(invoice.payment_amount ?? 2150),
+      },
+      lineItems: itemMap.get(invoice.id) ?? [],
+    }));
+
+  const { data: invoices, error } = await supabase
     .from("invoices")
-    .select("id, project_id, invoice_number, title, issue_date, due_date, status, currency, subtotal, tax_amount, total, notes")
+    .select(
+      "id, project_id, invoice_number, title, issue_date, due_date, status, currency, subtotal, tax_enabled, tax_rate, tax_amount, total, notes, payment_name, payment_abn, payment_payid, payment_reference, payment_amount",
+    )
     .eq("project_id", projectId)
     .order("issue_date", { ascending: false })
     .returns<
@@ -266,13 +325,52 @@ export async function getInvoicesByProjectId(projectId: string): Promise<Invoice
         status: InvoiceRecord["status"];
         currency: string;
         subtotal: number;
+        tax_enabled: boolean | null;
+        tax_rate: number | null;
         tax_amount: number;
         total: number;
         notes: string | null;
+        payment_name: string | null;
+        payment_abn: string | null;
+        payment_payid: string | null;
+        payment_reference: string | null;
+        payment_amount: number | null;
       }[]
     >();
+  let invoiceRows: Parameters<typeof mapInvoices>[0] = invoices;
+  if (error) {
+    const { data: fallbackRows } = await supabase
+      .from("invoices")
+      .select(
+        "id, project_id, invoice_number, title, issue_date, due_date, status, currency, subtotal, tax_amount, total, notes, payment_name, payment_abn, payment_payid, payment_reference, payment_amount",
+      )
+      .eq("project_id", projectId)
+      .order("issue_date", { ascending: false })
+      .returns<
+        {
+          id: string;
+          project_id: string;
+          invoice_number: string;
+          title: string;
+          issue_date: string;
+          due_date: string;
+          status: InvoiceRecord["status"];
+          currency: string;
+          subtotal: number;
+          tax_amount: number;
+          total: number;
+          notes: string | null;
+          payment_name: string | null;
+          payment_abn: string | null;
+          payment_payid: string | null;
+          payment_reference: string | null;
+          payment_amount: number | null;
+        }[]
+      >();
+    invoiceRows = fallbackRows as Parameters<typeof mapInvoices>[0];
+  }
 
-  const ids = (invoices ?? []).map((invoice) => invoice.id);
+  const ids = (invoiceRows ?? []).map((invoice) => invoice.id);
   const itemMap = new Map<string, InvoiceLineItem[]>();
   if (ids.length) {
     const { data: lineItems } = await supabase
@@ -303,29 +401,46 @@ export async function getInvoicesByProjectId(projectId: string): Promise<Invoice
     }
   }
 
-  return (invoices ?? []).map((invoice) => ({
-    id: invoice.id,
-    projectId: invoice.project_id,
-    invoiceNumber: invoice.invoice_number,
-    title: invoice.title,
-    issueDate: invoice.issue_date,
-    dueDate: invoice.due_date,
-    status: invoice.status,
-    currency: invoice.currency,
-    subtotal: Number(invoice.subtotal),
-    taxAmount: Number(invoice.tax_amount),
-    total: Number(invoice.total),
-    notes: invoice.notes,
-    lineItems: itemMap.get(invoice.id) ?? [],
-  }));
+  return mapInvoices(invoiceRows, itemMap);
 }
 
 export async function getAgreementsByProjectId(projectId: string): Promise<AgreementRecord[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const mapRows = (
+    data:
+      | Array<{
+          id: string;
+          project_id: string;
+          title: string;
+          status: AgreementRecord["status"];
+          workflow_state?: AgreementRecord["workflowState"] | null;
+          content: string;
+          client_sig_name: string | null;
+          client_signed_at: string | null;
+          admin_sig_name: string | null;
+          admin_signed_at: string | null;
+          sent_at: string | null;
+        }>
+      | null,
+  ) =>
+    (data ?? []).map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      title: row.title,
+      status: row.status,
+      workflowState: row.workflow_state ?? "pending_review",
+      content: row.content,
+      clientSigName: row.client_sig_name,
+      clientSignedAt: row.client_signed_at,
+      adminSigName: row.admin_sig_name,
+      adminSignedAt: row.admin_signed_at,
+      sentAt: row.sent_at,
+    }));
+
+  const { data, error } = await supabase
     .from("agreements")
     .select(
-      "id, project_id, title, status, content, client_sig_name, client_signed_at, admin_sig_name, admin_signed_at, sent_at",
+      "id, project_id, title, status, workflow_state, content, client_sig_name, client_signed_at, admin_sig_name, admin_signed_at, sent_at",
     )
     .eq("project_id", projectId)
     .order("created_at", { ascending: false })
@@ -335,6 +450,7 @@ export async function getAgreementsByProjectId(projectId: string): Promise<Agree
         project_id: string;
         title: string;
         status: AgreementRecord["status"];
+        workflow_state: AgreementRecord["workflowState"] | null;
         content: string;
         client_sig_name: string | null;
         client_signed_at: string | null;
@@ -343,19 +459,13 @@ export async function getAgreementsByProjectId(projectId: string): Promise<Agree
         sent_at: string | null;
       }[]
     >();
-
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    projectId: row.project_id,
-    title: row.title,
-    status: row.status,
-    content: row.content,
-    clientSigName: row.client_sig_name,
-    clientSignedAt: row.client_signed_at,
-    adminSigName: row.admin_sig_name,
-    adminSignedAt: row.admin_signed_at,
-    sentAt: row.sent_at,
-  }));
+  if (!error) return mapRows(data);
+  const { data: fallbackData } = await supabase
+    .from("agreements")
+    .select("id, project_id, title, status, content, client_sig_name, client_signed_at, admin_sig_name, admin_signed_at, sent_at")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  return mapRows(fallbackData as Parameters<typeof mapRows>[0]);
 }
 
 export async function getManualCalendarEventsByProjectId(projectId: string): Promise<CalendarEventRecord[]> {
