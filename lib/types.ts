@@ -26,7 +26,10 @@ export interface WeekTimeline {
   status: ProjectStatus;
   progress: number;
   dateRange: string;
-  checklist: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+  weekColor?: "sand" | "rose" | "mint" | "sky" | "lavender";
+  checklist: Array<{ id: string; label: string; completed: boolean }>;
   notes: string;
   details: string;
   linkedAssets?: string[];

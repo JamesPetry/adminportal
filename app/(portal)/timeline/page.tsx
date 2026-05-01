@@ -18,10 +18,36 @@ export default async function TimelinePage() {
     payload: { timeline },
   } = await getClientPortalView();
   const currentWeekId = timeline.find((week) => week.status === "In Progress")?.id;
+  const completedCount = timeline.filter((week) => week.status === "Complete").length;
+  const avgProgress = timeline.length
+    ? Math.round(timeline.reduce((sum, week) => sum + Math.max(0, Math.min(week.progress, 100)), 0) / timeline.length)
+    : 0;
 
   return (
     <PageShell title="Timeline">
       <div className="space-y-6">
+        {timeline.length ? (
+          <section className="grid gap-4 sm:grid-cols-3">
+            <Card className="editorial-shell border-zinc-300/80 bg-white shadow-none">
+              <CardContent className="p-5">
+                <p className="editorial-kicker">Timeline Weeks</p>
+                <p className="mt-2 font-heading text-4xl leading-none text-zinc-900">{timeline.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="editorial-shell border-zinc-300/80 bg-white shadow-none">
+              <CardContent className="p-5">
+                <p className="editorial-kicker">Completed</p>
+                <p className="mt-2 font-heading text-4xl leading-none text-zinc-900">{completedCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="editorial-shell border-zinc-300/80 bg-white shadow-none">
+              <CardContent className="p-5">
+                <p className="editorial-kicker">Average Progress</p>
+                <p className="mt-2 font-heading text-4xl leading-none text-zinc-900">{avgProgress}%</p>
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
         {!timeline.length ? (
           <EmptyState
             icon={CalendarRange}
@@ -34,10 +60,7 @@ export default async function TimelinePage() {
             <Card
               className={cn(
                 "editorial-shell border-zinc-300/80 bg-white shadow-none",
-                index % 4 === 0 && "bg-[#fff9e5]",
-                index % 4 === 1 && "bg-[#f9ebeb]",
-                index % 4 === 2 && "bg-[#ecf5ee]",
-                index % 4 === 3 && "bg-[#ebf5f9]",
+                getWeekColorClass(week.weekColor, index),
                 week.id === currentWeekId && "border-violet-200/70 bg-violet-50/50 ring-1 ring-violet-200/50",
               )}
             >
@@ -52,7 +75,7 @@ export default async function TimelinePage() {
                   <StatusBadge status={week.status} />
                   <div className="flex items-center gap-2 text-sm text-zinc-500">
                     <CalendarRange className="h-4 w-4" />
-                    <span>{week.dateRange}</span>
+                    <span>{week.dateRange || "Date range not set"}</span>
                   </div>
                 </div>
               </CardHeader>
@@ -66,11 +89,12 @@ export default async function TimelinePage() {
                   <div className="space-y-2 lg:col-span-6">
                     <p className="editorial-kicker">Deliverables</p>
                     {(week.checklist ?? []).map((item) => (
-                      <div key={item} className="flex min-h-8 items-center gap-2 text-sm text-zinc-700">
-                        <CheckCircle2 className="h-4 w-4 text-zinc-300" />
-                        <span>{item}</span>
+                      <div key={item.id} className="flex min-h-8 items-center gap-2 text-sm text-zinc-700">
+                        <CheckCircle2 className={cn("h-4 w-4", item.completed ? "text-emerald-600" : "text-zinc-300")} />
+                        <span className={cn(item.completed && "line-through text-zinc-500")}>{item.label}</span>
                       </div>
                     ))}
+                    {!(week.checklist ?? []).length ? <p className="text-sm text-zinc-500">No deliverables yet.</p> : null}
                   </div>
                   <div className="lg:col-span-6">
                     {week.imageUrl ? (
@@ -115,4 +139,16 @@ export default async function TimelinePage() {
       </div>
     </PageShell>
   );
+}
+
+function getWeekColorClass(weekColor: "sand" | "rose" | "mint" | "sky" | "lavender" | undefined, index: number) {
+  const fallback = ["bg-[#fff9e5]", "bg-[#f9ebeb]", "bg-[#ecf5ee]", "bg-[#ebf5f9]", "bg-[#f2edff]"][index % 5];
+  const map: Record<NonNullable<typeof weekColor>, string> = {
+    sand: "bg-[#fff9e5]",
+    rose: "bg-[#f9ebeb]",
+    mint: "bg-[#ecf5ee]",
+    sky: "bg-[#ebf5f9]",
+    lavender: "bg-[#f2edff]",
+  };
+  return weekColor ? map[weekColor] : fallback;
 }

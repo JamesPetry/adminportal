@@ -63,6 +63,26 @@ function isImageEvent(event: CalendarEvent) {
   );
 }
 
+function parseDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function toDateKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function eventCoversDay(event: CalendarEvent, dayKey: string) {
+  if (!event.endDate) return event.date === dayKey;
+  const start = parseDateKey(event.date).getTime();
+  const end = parseDateKey(event.endDate).getTime();
+  const target = parseDateKey(dayKey).getTime();
+  return target >= Math.min(start, end) && target <= Math.max(start, end);
+}
+
 export function FullCalendar({ events, invoices, agreements, projectId, viewerRole, viewerUserId, year, month }: Props) {
   const [items, setItems] = useState(events);
   const [visibleDate, setVisibleDate] = useState(new Date(year, month, 1));
@@ -87,11 +107,12 @@ export function FullCalendar({ events, invoices, agreements, projectId, viewerRo
   );
 
   const byDay = new Map<string, CalendarEvent[]>();
-  for (const event of items) {
-    const key = event.date;
-    const list = byDay.get(key) ?? [];
-    list.push(event);
-    byDay.set(key, list);
+  for (const day of days) {
+    const key = toDateKey(day);
+    byDay.set(
+      key,
+      items.filter((event) => eventCoversDay(event, key)),
+    );
   }
 
   const selectedDayItems = selectedDate ? byDay.get(selectedDate) ?? [] : [];

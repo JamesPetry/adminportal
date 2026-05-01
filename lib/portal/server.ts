@@ -48,6 +48,30 @@ function normalizeClientName(name: string) {
   return name.trim().toLowerCase() === "norman" ? "Strat X Advisory" : name;
 }
 
+function normalizeTimelineChecklist(
+  checklist: unknown,
+): Array<{ id: string; label: string; completed: boolean }> {
+  if (!Array.isArray(checklist)) return [];
+  return checklist
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return { id: `check-${index}-${item.slice(0, 8)}`, label: item, completed: false };
+      }
+      if (item && typeof item === "object") {
+        const row = item as { id?: unknown; label?: unknown; completed?: unknown };
+        const label = String(row.label ?? "").trim();
+        if (!label) return null;
+        return {
+          id: typeof row.id === "string" && row.id ? row.id : `check-${index}-${label.slice(0, 8)}`,
+          label,
+          completed: Boolean(row.completed),
+        };
+      }
+      return null;
+    })
+    .filter((item): item is { id: string; label: string; completed: boolean } => Boolean(item));
+}
+
 export const getViewerContext = cache(async (): Promise<ViewerContext> => {
   const supabase = await createClient();
   const {
@@ -160,6 +184,12 @@ export async function getPortalPayloadByProjectId(project: ProjectRecord): Promi
     clientActions: data?.client_actions ?? fallback.clientActions,
     includedRevisions: data?.included_revisions ?? fallback.includedRevisions,
   };
+
+  payload.timeline = (payload.timeline ?? []).map((week, index) => ({
+    ...week,
+    weekColor: week.weekColor ?? (["sand", "rose", "mint", "sky", "lavender"][index % 5] as NonNullable<typeof week.weekColor>),
+    checklist: normalizeTimelineChecklist(week.checklist),
+  }));
 
   payload.projectDetails = {
     ...payload.projectDetails,
@@ -541,6 +571,11 @@ function parseDateRangeStart(dateRange: string) {
   return hit?.[1] ?? null;
 }
 
+function parseDateRange(dateRange: string) {
+  const matches = dateRange.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? [];
+  return { startDate: matches[0] ?? null, endDate: matches[1] ?? null };
+}
+
 export async function getCalendarEventsByProjectId(projectId: string): Promise<CalendarEvent[]> {
   const [invoices, manualEvents] = await Promise.all([
     getInvoicesByProjectId(projectId),
@@ -583,17 +618,26 @@ export async function getCalendarEventsByProjectId(projectId: string): Promise<C
   }
 
   for (const week of payload.timeline) {
-    const start = parseDateRangeStart(week.dateRange);
+    const parsedRange = parseDateRange(week.dateRange);
+    const start = week.startDate ?? parsedRange.startDate ?? parseDateRangeStart(week.dateRange);
+    const end = week.endDate ?? parsedRange.endDate ?? null;
     if (!start) continue;
     events.push({
       id: `timeline-${week.id}`,
       title: week.title,
       date: start,
-      endDate: null,
+      endDate: end,
       kind: "timeline",
       sourceRef: week.id,
-      colorToken: "timeline",
-      status: week.status,
+      colorToken:
+        week.weekColor === "rose"
+          ? "finance"
+          : week.weekColor === "lavender"
+            ? "approvals"
+            : week.weekColor === "mint"
+              ? "custom"
+              : "timeline",
+      status: `${week.status}${week.weekLabel ? ` · ${week.weekLabel}` : ""}`,
     });
   }
 

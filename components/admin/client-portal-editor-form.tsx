@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { DesignConcept, ProjectOverview, WeekTimeline } from "@/lib/types";
+import type { DesignConcept, PortalFile, ProjectDetails, ProjectOverview, WeekTimeline } from "@/lib/types";
 
 type Props = {
   action: (formData: FormData) => void | Promise<void>;
@@ -32,6 +32,14 @@ const projectStatuses: ProjectOverview["projectStatus"][] = [
 const timelineStatuses: WeekTimeline["status"][] = ["Not Started", "In Progress", "Under Review", "Complete"];
 const designStatuses: DesignConcept["status"][] = ["Draft", "Ready for Review", "Approved", "Needs Feedback"];
 const versions: DesignConcept["version"][] = ["V1", "V2", "V3"];
+const weekColors: NonNullable<WeekTimeline["weekColor"]>[] = ["sand", "rose", "mint", "sky", "lavender"];
+const legacyFileCategories: PortalFile["category"][] = [
+  "Brand Assets",
+  "Wireframes",
+  "Design Exports",
+  "Content Docs",
+  "Final Deliverables",
+];
 function createTimelineItem(): WeekTimeline {
   return {
     id: crypto.randomUUID(),
@@ -40,7 +48,10 @@ function createTimelineItem(): WeekTimeline {
     status: "Not Started",
     progress: 0,
     dateRange: "",
-    checklist: [],
+    startDate: null,
+    endDate: null,
+    weekColor: "sand",
+    checklist: [{ id: crypto.randomUUID(), label: "", completed: false }],
     notes: "",
     details: "",
     linkedAssets: [],
@@ -56,6 +67,28 @@ function normalizeStringArray(value: unknown): string[] {
     return [value.trim()];
   }
   return [];
+}
+
+function normalizeChecklist(
+  value: unknown,
+): Array<{ id: string; label: string; completed: boolean }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") {
+        return { id: crypto.randomUUID(), label: item, completed: false };
+      }
+      if (item && typeof item === "object") {
+        const row = item as { id?: unknown; label?: unknown; completed?: unknown };
+        return {
+          id: typeof row.id === "string" && row.id ? row.id : crypto.randomUUID(),
+          label: String(row.label ?? "").trim(),
+          completed: Boolean(row.completed),
+        };
+      }
+      return null;
+    })
+    .filter((item): item is { id: string; label: string; completed: boolean } => Boolean(item?.label));
 }
 
 function createDesignItem(): DesignConcept {
@@ -79,6 +112,20 @@ function createDesignItem(): DesignConcept {
   };
 }
 
+function createProjectContact(): ProjectDetails["keyContacts"][number] {
+  return { name: "", role: "", email: "" };
+}
+
+function createLegacyFileItem(): PortalFile {
+  return {
+    id: crypto.randomUUID(),
+    fileName: "",
+    category: "Final Deliverables",
+    uploadedAt: new Date().toISOString().slice(0, 10),
+    fileType: "",
+  };
+}
+
 export function ClientPortalEditorForm({
   action,
   overview,
@@ -92,12 +139,38 @@ export function ClientPortalEditorForm({
   clientActionsJson,
 }: Props) {
   void _invoices;
+  const parsedProjectDetails = useMemo<ProjectDetails>(() => {
+    try {
+      return JSON.parse(projectDetailsJson) as ProjectDetails;
+    } catch {
+      return {
+        scopeSummary: "",
+        includedItems: [],
+        redesignGoals: [],
+        keyContacts: [],
+        stagingUrl: "",
+        proposalSections: [],
+        faq: [],
+      };
+    }
+  }, [projectDetailsJson]);
+  const parsedLegacyFiles = useMemo<PortalFile[]>(() => {
+    try {
+      const rows = JSON.parse(filesJson) as PortalFile[];
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }, [filesJson]);
   const sanitizedTimeline = useMemo(
     () =>
-      timeline.map((week) => ({
+      timeline.map((week, index) => ({
         ...week,
-        checklist: normalizeStringArray(week.checklist),
+        weekColor: week.weekColor ?? weekColors[index % weekColors.length],
+        checklist: normalizeChecklist(week.checklist),
         linkedAssets: normalizeStringArray(week.linkedAssets),
+        startDate: week.startDate ?? extractDateRange(week.dateRange).startDate,
+        endDate: week.endDate ?? extractDateRange(week.dateRange).endDate,
       })),
     [timeline],
   );
@@ -105,14 +178,52 @@ export function ClientPortalEditorForm({
     sanitizedTimeline.length ? sanitizedTimeline : [createTimelineItem()],
   );
   const [designItems, setDesignItems] = useState<DesignConcept[]>(designs.length ? designs : [createDesignItem()]);
+  const [scopeSummary, setScopeSummary] = useState(parsedProjectDetails.scopeSummary ?? "");
+  const [includedItems, setIncludedItems] = useState<string[]>(parsedProjectDetails.includedItems ?? []);
+  const [redesignGoals, setRedesignGoals] = useState<string[]>(parsedProjectDetails.redesignGoals ?? []);
+  const [keyContacts, setKeyContacts] = useState<ProjectDetails["keyContacts"]>(parsedProjectDetails.keyContacts ?? []);
+  const [legacyFiles, setLegacyFiles] = useState<PortalFile[]>(parsedLegacyFiles.length ? parsedLegacyFiles : []);
 
   const timelineJson = useMemo(() => JSON.stringify(timelineItems), [timelineItems]);
   const designsJson = useMemo(() => JSON.stringify(designItems), [designItems]);
+  const nextProjectDetailsJson = useMemo(
+    () =>
+      JSON.stringify({
+        ...parsedProjectDetails,
+        scopeSummary,
+        includedItems: includedItems.map((item) => item.trim()).filter(Boolean),
+        redesignGoals: redesignGoals.map((item) => item.trim()).filter(Boolean),
+        keyContacts: keyContacts
+          .map((contact) => ({
+            name: contact.name.trim(),
+            role: contact.role.trim(),
+            email: contact.email.trim(),
+          }))
+          .filter((contact) => contact.name || contact.role || contact.email),
+      } satisfies ProjectDetails),
+    [includedItems, keyContacts, parsedProjectDetails, redesignGoals, scopeSummary],
+  );
+  const nextFilesJson = useMemo(
+    () =>
+      JSON.stringify(
+        legacyFiles
+          .map((item) => ({
+            ...item,
+            fileName: item.fileName.trim(),
+            fileType: item.fileType.trim(),
+            uploadedAt: item.uploadedAt.trim(),
+          }))
+          .filter((item) => item.fileName),
+      ),
+    [legacyFiles],
+  );
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="timelineJson" value={timelineJson} />
       <input type="hidden" name="designsJson" value={designsJson} />
       <input type="hidden" name="invoicesJson" value="[]" />
+      <input type="hidden" name="projectDetailsJson" value={nextProjectDetailsJson} />
+      <input type="hidden" name="filesJson" value={nextFilesJson} />
 
       <section className="editorial-shell p-5">
         <h2 className="text-base font-semibold text-zinc-900">Overview</h2>
@@ -170,6 +281,11 @@ export function ClientPortalEditorForm({
                 <InlineInput value={week.title} onChange={(value) => updateTimeline(setTimelineItems, index, { title: value })} placeholder="Title" />
                 <InlineInput value={week.dateRange} onChange={(value) => updateTimeline(setTimelineItems, index, { dateRange: value })} placeholder="Date range" />
                 <InlineSelect value={week.status} options={timelineStatuses} onChange={(value) => updateTimeline(setTimelineItems, index, { status: value as WeekTimeline["status"] })} />
+                <InlineSelect
+                  value={week.weekColor ?? weekColors[0]}
+                  options={weekColors}
+                  onChange={(value) => updateTimeline(setTimelineItems, index, { weekColor: value as WeekTimeline["weekColor"] })}
+                />
                 <InlineInput
                   value={String(week.progress)}
                   onChange={(value) => updateTimeline(setTimelineItems, index, { progress: Number(value || 0) })}
@@ -179,6 +295,30 @@ export function ClientPortalEditorForm({
                   value={week.imagePath ?? ""}
                   onChange={(value) => updateTimeline(setTimelineItems, index, { imagePath: value })}
                   placeholder="Image storage path (optional)"
+                />
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <DateInput
+                  label="Start date"
+                  value={week.startDate ?? ""}
+                  onChange={(value) => {
+                    const nextRange = buildDateRangeLabel(value, week.endDate ?? null);
+                    updateTimeline(setTimelineItems, index, {
+                      startDate: value || null,
+                      dateRange: nextRange || week.dateRange,
+                    });
+                  }}
+                />
+                <DateInput
+                  label="End date"
+                  value={week.endDate ?? ""}
+                  onChange={(value) => {
+                    const nextRange = buildDateRangeLabel(week.startDate ?? null, value);
+                    updateTimeline(setTimelineItems, index, {
+                      endDate: value || null,
+                      dateRange: nextRange || week.dateRange,
+                    });
+                  }}
                 />
               </div>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -194,14 +334,65 @@ export function ClientPortalEditorForm({
                   onChange={(event) => updateTimeline(setTimelineItems, index, { details: event.target.value })}
                   placeholder="Expanded details"
                 />
-                <Textarea
-                  rows={4}
-                  value={normalizeStringArray(week.checklist).join("\n")}
-                  onChange={(event) =>
-                    updateTimeline(setTimelineItems, index, { checklist: toLines(event.target.value) })
-                  }
-                  placeholder="Checklist items (one per line)"
-                />
+                <div className="rounded-md border border-zinc-200 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">Deliverables</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-7 border-zinc-200 px-2 text-xs"
+                      onClick={() =>
+                        updateTimeline(setTimelineItems, index, {
+                          checklist: [...(week.checklist ?? []), { id: crypto.randomUUID(), label: "", completed: false }],
+                        })
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {(week.checklist ?? []).map((item, itemIndex) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
+                          onChange={(event) =>
+                            updateTimeline(setTimelineItems, index, {
+                              checklist: (week.checklist ?? []).map((row, idx) =>
+                                idx === itemIndex ? { ...row, completed: event.target.checked } : row,
+                              ),
+                            })
+                          }
+                        />
+                        <Input
+                          value={item.label}
+                          onChange={(event) =>
+                            updateTimeline(setTimelineItems, index, {
+                              checklist: (week.checklist ?? []).map((row, idx) =>
+                                idx === itemIndex ? { ...row, label: event.target.value } : row,
+                              ),
+                            })
+                          }
+                          placeholder={`Deliverable ${itemIndex + 1}`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-8 px-2 text-zinc-500 hover:text-rose-600"
+                          onClick={() =>
+                            updateTimeline(setTimelineItems, index, {
+                              checklist: (week.checklist ?? []).filter((_, idx) => idx !== itemIndex),
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {!(week.checklist ?? []).length ? <p className="text-xs text-zinc-500">No deliverables yet.</p> : null}
+                  </div>
+                </div>
                 <Textarea
                   rows={4}
                   value={normalizeStringArray(week.linkedAssets).join("\n")}
@@ -318,10 +509,156 @@ export function ClientPortalEditorForm({
         <p className="mt-1 text-xs text-zinc-500">
           Keep using JSON for remaining sections until those editors are added.
         </p>
+        <section className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/40 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-zinc-900">Project Proposal Editor</h3>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="proposalScopeSummary">Scope of work summary</Label>
+              <Textarea
+                id="proposalScopeSummary"
+                rows={4}
+                value={scopeSummary}
+                onChange={(event) => setScopeSummary(event.target.value)}
+                placeholder="Outline the scope of work for this project."
+              />
+            </div>
+            <LineListEditor
+              title="Primary scope items"
+              placeholder="Add included item"
+              values={includedItems}
+              onChange={setIncludedItems}
+            />
+            <LineListEditor
+              title="Primary goals"
+              placeholder="Add primary goal"
+              values={redesignGoals}
+              onChange={setRedesignGoals}
+            />
+            <div className="rounded-md border border-zinc-200 bg-white p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">Key contacts</p>
+                <Button type="button" variant="outline" className="h-7 border-zinc-200 px-2 text-xs" onClick={() => setKeyContacts((prev) => [...prev, createProjectContact()])}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {keyContacts.map((contact, index) => (
+                  <div key={`contact-${index}`} className="grid gap-2 md:grid-cols-[1fr_1fr_1.2fr_auto]">
+                    <Input
+                      value={contact.name}
+                      placeholder="Name"
+                      onChange={(event) =>
+                        setKeyContacts((prev) =>
+                          prev.map((row, idx) => (idx === index ? { ...row, name: event.target.value } : row)),
+                        )
+                      }
+                    />
+                    <Input
+                      value={contact.role}
+                      placeholder="Role"
+                      onChange={(event) =>
+                        setKeyContacts((prev) =>
+                          prev.map((row, idx) => (idx === index ? { ...row, role: event.target.value } : row)),
+                        )
+                      }
+                    />
+                    <Input
+                      value={contact.email}
+                      placeholder="Email"
+                      onChange={(event) =>
+                        setKeyContacts((prev) =>
+                          prev.map((row, idx) => (idx === index ? { ...row, email: event.target.value } : row)),
+                        )
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 px-2 text-zinc-500 hover:text-rose-600"
+                      onClick={() => setKeyContacts((prev) => prev.filter((_, idx) => idx !== index))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {!keyContacts.length ? <p className="text-xs text-zinc-500">No contacts added yet.</p> : null}
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/40 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-zinc-900">Legacy Deliverables Metadata</h3>
+            <Button type="button" variant="outline" className="h-8 border-zinc-200 text-xs" onClick={() => setLegacyFiles((prev) => [...prev, createLegacyFileItem()])}>
+              <Plus className="h-4 w-4" />
+              Add file row
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {legacyFiles.map((item, index) => (
+              <div key={item.id || index} className="grid gap-2 rounded-md border border-zinc-200 bg-white p-3 md:grid-cols-[1.3fr_1fr_0.8fr_0.8fr_auto]">
+                <Input
+                  value={item.fileName}
+                  placeholder="File name"
+                  onChange={(event) =>
+                    setLegacyFiles((prev) =>
+                      prev.map((row, idx) => (idx === index ? { ...row, fileName: event.target.value } : row)),
+                    )
+                  }
+                />
+                <select
+                  value={item.category}
+                  onChange={(event) =>
+                    setLegacyFiles((prev) =>
+                      prev.map((row, idx) =>
+                        idx === index ? { ...row, category: event.target.value as PortalFile["category"] } : row,
+                      ),
+                    )
+                  }
+                  className="flex h-8 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900"
+                >
+                  {legacyFileCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={item.fileType}
+                  placeholder="Type (pdf/png)"
+                  onChange={(event) =>
+                    setLegacyFiles((prev) =>
+                      prev.map((row, idx) => (idx === index ? { ...row, fileType: event.target.value } : row)),
+                    )
+                  }
+                />
+                <Input
+                  value={item.uploadedAt}
+                  placeholder="Uploaded at"
+                  onChange={(event) =>
+                    setLegacyFiles((prev) =>
+                      prev.map((row, idx) => (idx === index ? { ...row, uploadedAt: event.target.value } : row)),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 px-2 text-zinc-500 hover:text-rose-600"
+                  onClick={() => setLegacyFiles((prev) => prev.filter((_, idx) => idx !== index))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            {!legacyFiles.length ? <p className="text-xs text-zinc-500">No legacy metadata rows.</p> : null}
+          </div>
+        </section>
         <div className="mt-3 space-y-3">
           <JsonField label="Feedback JSON" name="feedbackJson" defaultValue={feedbackJson} />
-          <JsonField label="Files JSON" name="filesJson" defaultValue={filesJson} />
-          <JsonField label="Project Details JSON" name="projectDetailsJson" defaultValue={projectDetailsJson} />
           <JsonField label="Client Actions JSON" name="clientActionsJson" defaultValue={clientActionsJson} />
         </div>
       </section>
@@ -419,6 +756,23 @@ function InlineSelect({
   );
 }
 
+function DateInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <Input type="date" value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
 function updateTimeline(
   setState: Dispatch<SetStateAction<WeekTimeline[]>>,
   index: number,
@@ -456,9 +810,69 @@ function updateDesignDetail(
   );
 }
 
+function buildDateRangeLabel(startDate?: string | null, endDate?: string | null) {
+  if (startDate && endDate) return `${startDate} → ${endDate}`;
+  if (startDate) return startDate;
+  return "";
+}
+
 function toLines(value: string) {
   return value
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function LineListEditor({
+  title,
+  placeholder,
+  values,
+  onChange,
+}: {
+  title: string;
+  placeholder: string;
+  values: string[];
+  onChange: Dispatch<SetStateAction<string[]>>;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-white p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">{title}</p>
+        <Button type="button" variant="outline" className="h-7 border-zinc-200 px-2 text-xs" onClick={() => onChange((prev) => [...prev, ""])}>
+          <Plus className="h-3.5 w-3.5" />
+          Add
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {values.map((value, index) => (
+          <div key={`${title}-${index}`} className="flex items-center gap-2">
+            <Input
+              value={value}
+              placeholder={placeholder}
+              onChange={(event) =>
+                onChange((prev) => prev.map((row, idx) => (idx === index ? event.target.value : row)))
+              }
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 px-2 text-zinc-500 hover:text-rose-600"
+              onClick={() => onChange((prev) => prev.filter((_, idx) => idx !== index))}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        {!values.length ? <p className="text-xs text-zinc-500">No items yet.</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function extractDateRange(dateRange: string) {
+  const matches = dateRange.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? [];
+  return {
+    startDate: matches[0] ?? null,
+    endDate: matches[1] ?? null,
+  };
 }
