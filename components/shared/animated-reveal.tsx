@@ -1,16 +1,13 @@
-"use client";
-
-import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
+/**
+ * Lightweight entrance animation (CSS only — no Framer on the critical path).
+ * Respects `prefers-reduced-motion` via global styles.
+ */
 export function AnimatedReveal({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: "easeOut", delay }}
-    >
+    <div className="animate-reveal" style={delay > 0 ? { animationDelay: `${delay}s` } : undefined}>
       {children}
-    </motion.div>
+    </div>
   );
 }

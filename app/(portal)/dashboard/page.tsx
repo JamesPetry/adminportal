@@ -29,10 +29,13 @@ function getSydneyGreeting() {
 export default async function DashboardPage() {
   const { payload, project } = await getClientPortalView();
   const projectOverview = payload.overview;
-  const invoices = await getInvoicesByProjectId(project.id);
-  const agreements = await getAgreementsByProjectId(project.id);
-  const { rows: files } = await getProjectFiles(project.id);
-  const calendarEvents = await getCalendarEventsByProjectId(project.id);
+  const [invoices, agreements, filesResult, calendarEvents] = await Promise.all([
+    getInvoicesByProjectId(project.id),
+    getAgreementsByProjectId(project.id),
+    getProjectFiles(project.id),
+    getCalendarEventsByProjectId(project.id),
+  ]);
+  const { rows: files } = filesResult;
   const pendingInvoices = invoices.filter((invoice) => invoice.status === "Pending" || invoice.status === "Overdue");
   const pendingAgreementCount = agreements.filter((agreement) => agreement.status !== "fully_signed").length;
   const waitingAgreement =

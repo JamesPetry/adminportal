@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Download, Eye, FileArchive, FileText, ImageIcon, Send } from "lucide-react";
+import { Download, Eye, FileArchive, ImageIcon, Send } from "lucide-react";
 
 import { signAgreement } from "@/app/(portal)/agreement-actions";
 import {

@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Manrope, Newsreader } from "next/font/google";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Manrope, Newsreader } from "next/font/google";
+
+import { SpeedInsightsDeferred } from "@/components/analytics/speed-insights-deferred";
 import "./globals.css";
 
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
+  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -26,19 +26,31 @@ export const metadata: Metadata = {
   description: "Premium client portal for the Strat X Advisory website redesign project.",
 };
 
+function supabasePreconnectOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabaseOrigin = supabasePreconnectOrigin();
+
   return (
-    <html
-      lang="en"
-      className={`${manrope.variable} ${newsreader.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${manrope.variable} ${newsreader.variable} h-full antialiased`}>
+      <head>
+        {supabaseOrigin ? <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" /> : null}
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
-        <SpeedInsights />
+        <SpeedInsightsDeferred />
       </body>
     </html>
   );

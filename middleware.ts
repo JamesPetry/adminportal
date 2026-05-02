@@ -22,5 +22,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    /*
+      Skip static assets and Next.js metadata routes so auth + session refresh
+      do not run on favicon / OG probes (faster cold loads + cleaner Lighthouse).
+    */
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

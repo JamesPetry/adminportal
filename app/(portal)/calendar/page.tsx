@@ -1,5 +1,5 @@
+import { CalendarViewLoader } from "@/components/calendar/calendar-view-loader";
 import { PageShell } from "@/components/layout/page-shell";
-import { FullCalendar } from "@/components/calendar/full-calendar";
 import {
   getAgreementsByProjectId,
   getCalendarEventsByProjectId,
@@ -22,7 +22,7 @@ export default async function CalendarPage() {
 
   return (
     <PageShell title="Calendar">
-      <FullCalendar
+      <CalendarViewLoader
         events={events}
         invoices={invoices.map((invoice) => ({ id: invoice.id, label: `${invoice.invoiceNumber} - ${invoice.title}` }))}
         agreements={agreements.map((agreement) => ({ id: agreement.id, label: agreement.title }))}
