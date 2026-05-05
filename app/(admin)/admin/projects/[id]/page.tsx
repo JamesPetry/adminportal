@@ -1,8 +1,10 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Download, Eye, FileArchive, ImageIcon, Send } from "lucide-react";
 
 import { signAgreement } from "@/app/(portal)/agreement-actions";
+import { startAdminClientPreview } from "@/app/preview-actions";
 import {
   assignClientToProject,
   createAgreement,
@@ -62,6 +64,14 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
           <p className="mt-2 text-sm text-zinc-600">
             Manage portal data, documents, invoices, and agreement signatures for this project.
           </p>
+          <form action={startAdminClientPreview.bind(null, project.id)} className="mt-3">
+            <button
+              type="submit"
+              className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700 hover:bg-zinc-50"
+            >
+              Preview client dashboard
+            </button>
+          </form>
           <form action={signOut} className="mt-3">
             <button type="submit" className="text-sm font-medium text-zinc-500 hover:text-zinc-900">
               Sign out
@@ -147,7 +157,15 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
               {imageFiles.map((file) => (
                 <article key={file.id} className="mb-3 break-inside-avoid overflow-hidden rounded-xl border border-zinc-200 bg-white">
                   {signedMap.get(file.id) ? (
-                    <img src={signedMap.get(file.id)} alt={file.fileName} className="h-auto w-full object-cover" />
+                    <div className="relative aspect-[4/3] w-full bg-zinc-100">
+                      <Image
+                        src={signedMap.get(file.id)!}
+                        alt={file.fileName}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+                    </div>
                   ) : null}
                   <div className="space-y-2 p-3 text-sm">
                     <p className="font-medium text-zinc-900">{file.fileName}</p>

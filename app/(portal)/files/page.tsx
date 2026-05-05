@@ -1,4 +1,5 @@
 import { Download, Eye, FileArchive, FileImage, FileSpreadsheet, FileText, FileType2, ScrollText } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { PageShell } from "@/components/layout/page-shell";
 import { AnimatedReveal } from "@/components/shared/animated-reveal";
@@ -56,8 +57,21 @@ export default async function FilesPage() {
                 <div className="columns-1 gap-4 md:columns-2 xl:columns-3">
                   {imageFiles.map((file) => (
                     <article key={file.id} className="mb-4 break-inside-avoid overflow-hidden rounded-[1.1rem] border border-zinc-400/15 bg-white">
-                      <a href={signedMap.get(file.id) ?? "#"} target="_blank" rel="noreferrer">
-                        <img src={signedMap.get(file.id) ?? ""} alt={file.fileName} className="h-auto w-full object-cover" />
+                      <a
+                        href={signedMap.get(file.id) ?? "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="relative block aspect-[3/4] w-full overflow-hidden bg-zinc-100"
+                      >
+                        {signedMap.get(file.id) ? (
+                          <Image
+                            src={signedMap.get(file.id)!}
+                            alt={file.fileName}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                          />
+                        ) : null}
                       </a>
                       <div className="space-y-2 p-3">
                         <p className="line-clamp-2 text-sm font-medium text-zinc-900">{file.fileName}</p>

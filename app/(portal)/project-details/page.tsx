@@ -1,4 +1,5 @@
 import { Download, ExternalLink, Mail } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { signAgreement } from "@/app/(portal)/agreement-actions";
@@ -94,8 +95,14 @@ export default async function ProjectDetailsPage() {
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {section.imageUrl ? (
-                          <div className="overflow-hidden rounded-xl border border-zinc-400/15">
-                            <img src={section.imageUrl} alt={section.title} className="h-44 w-full object-cover" />
+                          <div className="relative h-44 w-full overflow-hidden rounded-xl border border-zinc-400/15">
+                            <Image
+                              src={section.imageUrl}
+                              alt={section.title}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                            />
                           </div>
                         ) : null}
                         <p className="text-sm leading-7 text-zinc-600">{section.body}</p>

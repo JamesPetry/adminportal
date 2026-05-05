@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Check, MessageCircle, MoveRight } from "lucide-react";
 
@@ -45,7 +46,14 @@ export default async function DesignsPage() {
                 <CardHeader>
                   <div className="relative mb-4 flex h-52 items-end overflow-hidden rounded-[1.6rem] border border-zinc-400/15 bg-white/70 p-5">
                     {concept.heroImageUrl ? (
-                      <img src={concept.heroImageUrl} alt={concept.title} className="absolute inset-0 h-full w-full object-cover" />
+                      <Image
+                        src={concept.heroImageUrl}
+                        alt={concept.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 1024px) 100vw, 33vw"
+                        priority={index === 0}
+                      />
                     ) : null}
                     <span className="relative rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-500">
                       {concept.thumbnailLabel}

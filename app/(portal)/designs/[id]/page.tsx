@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Check, MessageCircle } from "lucide-react";
@@ -49,8 +50,15 @@ export default async function ConceptDetailsPage({ params }: ConceptPageProps) {
           </CardHeader>
           <CardContent className="grid gap-4 lg:grid-cols-2">
             {concept.heroImageUrl ? (
-              <div className="overflow-hidden rounded-[1.2rem] border border-zinc-400/15 lg:col-span-2">
-                <img src={concept.heroImageUrl} alt={concept.title} className="h-72 w-full object-cover" />
+              <div className="relative h-72 w-full overflow-hidden rounded-[1.2rem] border border-zinc-400/15 lg:col-span-2">
+                <Image
+                  src={concept.heroImageUrl}
+                  alt={concept.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 896px"
+                  priority
+                />
               </div>
             ) : null}
             <DetailBlock title="Hero section notes" value={concept.details.heroNotes} />

@@ -1,4 +1,5 @@
 import { CalendarRange, CheckCircle2, Link2 } from "lucide-react";
+import Image from "next/image";
 
 import { PageShell } from "@/components/layout/page-shell";
 import { AnimatedReveal } from "@/components/shared/animated-reveal";
@@ -98,8 +99,14 @@ export default async function TimelinePage() {
                   </div>
                   <div className="lg:col-span-6">
                     {week.imageUrl ? (
-                      <div className="mb-3 overflow-hidden rounded-[1rem] border border-zinc-400/20">
-                        <img src={week.imageUrl} alt={week.title} className="h-44 w-full object-cover" />
+                      <div className="relative mb-3 h-44 w-full overflow-hidden rounded-[1rem] border border-zinc-400/20">
+                        <Image
+                          src={week.imageUrl}
+                          alt={week.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 1024px) 100vw, 50vw"
+                        />
                       </div>
                     ) : null}
                     <p className="editorial-kicker">Notes Summary</p>
