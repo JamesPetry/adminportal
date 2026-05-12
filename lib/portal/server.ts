@@ -242,9 +242,10 @@ async function resolvePortalMediaUrls(payload: PortalPayload): Promise<PortalPay
 
 export async function getProjectFiles(projectId: string) {
   const supabase = await createClient();
+  const signedUrlExpirySeconds = 60 * 60 * 12;
   const { data } = await supabase
     .from("project_files")
-    .select("id, project_id, category, file_name, storage_path, mime_type, size_bytes, created_at")
+    .select("id, project_id, category, file_name, storage_path, mime_type, size_bytes, preview_image_path, duration_seconds, created_at")
     .eq("project_id", projectId)
     .order("created_at", { ascending: false })
     .returns<
@@ -256,6 +257,8 @@ export async function getProjectFiles(projectId: string) {
         storage_path: string;
         mime_type: string | null;
         size_bytes: number | null;
+        preview_image_path: string | null;
+        duration_seconds: number | null;
         created_at: string;
       }[]
     >();
@@ -268,6 +271,8 @@ export async function getProjectFiles(projectId: string) {
     storagePath: row.storage_path,
     mimeType: row.mime_type,
     sizeBytes: row.size_bytes,
+    previewImagePath: row.preview_image_path,
+    durationSeconds: row.duration_seconds,
     createdAt: row.created_at,
   }));
 
@@ -276,8 +281,16 @@ export async function getProjectFiles(projectId: string) {
     rows.map(async (file) => {
       const { data: signed } = await supabase.storage
         .from("project-files")
-        .createSignedUrl(file.storagePath, 60 * 60);
+        .createSignedUrl(file.storagePath, signedUrlExpirySeconds);
       if (signed?.signedUrl) signedMap.set(file.id, signed.signedUrl);
+      if (file.previewImagePath) {
+        const { data: previewSigned } = await supabase.storage
+          .from("project-files")
+          .createSignedUrl(file.previewImagePath, signedUrlExpirySeconds);
+        if (previewSigned?.signedUrl) {
+          file.previewImageUrl = previewSigned.signedUrl;
+        }
+      }
     }),
   );
 

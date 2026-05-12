@@ -218,6 +218,9 @@ export interface ProjectFileRecord {
   storagePath: string;
   mimeType: string | null;
   sizeBytes: number | null;
+  previewImagePath?: string | null;
+  previewImageUrl?: string | null;
+  durationSeconds?: number | null;
   createdAt: string;
 }
 

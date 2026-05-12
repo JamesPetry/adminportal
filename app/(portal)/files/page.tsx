@@ -1,6 +1,8 @@
 import { Download, Eye, FileArchive, FileImage, FileSpreadsheet, FileText, FileType2, ScrollText } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
+import { VideoFileCard } from "@/components/files/video-file-card";
 import { PageShell } from "@/components/layout/page-shell";
 import { AnimatedReveal } from "@/components/shared/animated-reveal";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -16,9 +18,12 @@ export const metadata = {
 export default async function FilesPage() {
   const { project } = await getClientPortalView();
   const { rows: portalFiles, signedMap } = await getProjectFiles(project.id);
+  const videoFiles = portalFiles.filter((item) => (item.mimeType ?? "").startsWith("video/"));
   const imageFiles = portalFiles.filter((item) => (item.mimeType ?? "").startsWith("image/"));
-  const nonImageFiles = portalFiles.filter((item) => !(item.mimeType ?? "").startsWith("image/"));
-  const categories = Array.from(new Set(nonImageFiles.map((item) => item.category)));
+  const documentFiles = portalFiles.filter(
+    (item) => !(item.mimeType ?? "").startsWith("image/") && !(item.mimeType ?? "").startsWith("video/"),
+  );
+  const categories = Array.from(new Set(documentFiles.map((item) => item.category)));
 
   return (
     <PageShell title="Files & Deliverables">
@@ -40,15 +45,31 @@ export default async function FilesPage() {
           </div>
         </AnimatedReveal>
 
-        {!categories.length ? (
+        {!portalFiles.length ? (
           <EmptyState
             icon={FileArchive}
             title="No files uploaded yet"
             description="Project files, invoices, agreements, and deliverables will appear here once published."
           />
         ) : null}
-        {imageFiles.length ? (
+        {videoFiles.length ? (
           <AnimatedReveal>
+            <Card className="editorial-shell border-zinc-300/80 bg-[#f8f4ef] shadow-none">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold tracking-tight text-zinc-900">Video Deliverables</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {videoFiles.map((file) =>
+                  signedMap.get(file.id) ? (
+                    <VideoFileCard key={file.id} file={file} fileUrl={signedMap.get(file.id)!} />
+                  ) : null,
+                )}
+              </CardContent>
+            </Card>
+          </AnimatedReveal>
+        ) : null}
+        {imageFiles.length ? (
+          <AnimatedReveal delay={0.04}>
             <Card className="editorial-shell border-zinc-300/80 bg-[#faf8f2] shadow-none">
               <CardHeader>
                 <CardTitle className="text-base font-semibold tracking-tight text-zinc-900">Image Deliverables</CardTitle>
@@ -103,15 +124,15 @@ export default async function FilesPage() {
             </Card>
           </AnimatedReveal>
         ) : null}
-        {nonImageFiles.length ? (
-          <AnimatedReveal delay={0.06}>
+        {documentFiles.length ? (
+          <AnimatedReveal delay={0.08}>
             <Card className="editorial-shell border-zinc-300/80 bg-white shadow-none">
               <CardHeader>
                 <CardTitle className="text-base font-semibold tracking-tight text-zinc-900">Documents & Other Files</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 md:grid-cols-2">
-                  {nonImageFiles.map((file) => (
+                  {documentFiles.map((file) => (
                     <div key={file.id} className="grid min-h-[90px] gap-3 rounded-[1.1rem] border border-zinc-400/15 bg-zinc-50/45 p-4 md:grid-cols-[auto_1fr_auto]">
                       <div className="rounded-lg border border-zinc-200 bg-white p-2 text-zinc-700">
                         <FileGlyph mimeType={file.mimeType} />
@@ -147,60 +168,6 @@ export default async function FilesPage() {
             </Card>
           </AnimatedReveal>
         ) : null}
-        {categories.map((category, index) => {
-          const files = nonImageFiles.filter((item) => item.category === category);
-
-          return (
-            <AnimatedReveal key={category} delay={index * 0.04}>
-              <Card className="editorial-shell border-zinc-300/80 bg-white shadow-none">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold tracking-tight text-zinc-900">{category}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {files.length ? (
-                    <div className="space-y-3">
-                      {files.map((file) => (
-                        <div
-                          key={file.id}
-                          className="grid min-h-[90px] gap-3 rounded-[1.1rem] border border-zinc-400/15 bg-zinc-50/45 p-4 md:grid-cols-[1.2fr_0.8fr_0.8fr_auto]"
-                        >
-                          <div className="text-sm font-medium text-zinc-900">{file.fileName}</div>
-                          <div className="text-sm text-zinc-500">{file.mimeType ?? "file"}</div>
-                          <div className="text-sm text-zinc-500">{new Date(file.createdAt).toLocaleDateString()}</div>
-                          <div className="flex gap-2">
-                            <a
-                              href={signedMap.get(file.id) ?? "#"}
-                              rel="noreferrer"
-                              target="_blank"
-                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-zinc-200")}
-                            >
-                              <Eye className="h-4 w-4" />
-                              Preview
-                            </a>
-                            <a
-                              href={signedMap.get(file.id) ?? "#"}
-                              download
-                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-zinc-200")}
-                            >
-                              <Download className="h-4 w-4" />
-                              Download
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState
-                      icon={FileArchive}
-                      title="No files in this category yet"
-                      description="Uploads will appear here as deliverables are prepared for review and handoff."
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            </AnimatedReveal>
-          );
-        })}
       </div>
     </PageShell>
   );

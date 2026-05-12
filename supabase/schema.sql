@@ -71,6 +71,8 @@ create table if not exists public.project_files (
   storage_path text not null,
   mime_type text,
   size_bytes bigint,
+  preview_image_path text,
+  duration_seconds numeric(10,2),
   uploaded_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now()
 );
@@ -134,6 +136,8 @@ alter table public.invoices add column if not exists payment_payid text not null
 alter table public.invoices add column if not exists payment_reference text not null default '0019';
 alter table public.invoices add column if not exists payment_amount numeric(12,2) not null default 2150;
 alter table public.agreements add column if not exists workflow_state text not null default 'pending_review';
+alter table public.project_files add column if not exists preview_image_path text;
+alter table public.project_files add column if not exists duration_seconds numeric(10,2);
 do $$
 begin
   alter table public.agreements

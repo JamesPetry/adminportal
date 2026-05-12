@@ -182,6 +182,41 @@ export async function deleteProject(formData: FormData) {
   redirect("/admin");
 }
 
+export async function registerProjectFileUpload(input: {
+  projectId: string;
+  category: string;
+  fileName: string;
+  storagePath: string;
+  mimeType: string | null;
+  sizeBytes: number;
+  previewImagePath?: string | null;
+  durationSeconds?: number | null;
+}) {
+  const context = await getUserContext();
+  if (context.role !== "admin") throw new Error("Only admin users can register uploads.");
+
+  const projectId = input.projectId.trim();
+  if (!projectId) throw new Error("Missing project id.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("project_files").insert({
+    project_id: projectId,
+    category: input.category.trim() || "General",
+    file_name: input.fileName.trim() || "Untitled upload",
+    storage_path: input.storagePath,
+    mime_type: input.mimeType || null,
+    size_bytes: Number.isFinite(input.sizeBytes) ? input.sizeBytes : null,
+    preview_image_path: input.previewImagePath ?? null,
+    duration_seconds: typeof input.durationSeconds === "number" && Number.isFinite(input.durationSeconds) ? input.durationSeconds : null,
+    uploaded_by: context.userId,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/files");
+  revalidatePath(`/admin/projects/${projectId}`);
+}
+
 export async function uploadProjectFile(projectId: string, formData: FormData) {
   const context = await getUserContext();
   if (context.role !== "admin") throw new Error("Only admin users can upload files.");
@@ -211,6 +246,7 @@ export async function uploadProjectFile(projectId: string, formData: FormData) {
   });
   if (dbError) throw new Error(dbError.message);
 
+  revalidatePath("/dashboard");
   revalidatePath("/files");
   revalidatePath(`/admin/projects/${projectId}`);
   redirect(`/admin/projects/${projectId}`);
@@ -226,14 +262,17 @@ export async function deleteProjectFile(formData: FormData) {
   const supabase = await createClient();
   const { data: fileRow } = await supabase
     .from("project_files")
-    .select("storage_path")
+    .select("storage_path, preview_image_path")
     .eq("id", fileId)
-    .single<{ storage_path: string }>();
+    .single<{ storage_path: string; preview_image_path: string | null }>();
   if (fileRow?.storage_path) {
-    await supabase.storage.from("project-files").remove([fileRow.storage_path]);
+    const paths = [fileRow.storage_path];
+    if (fileRow.preview_image_path) paths.push(fileRow.preview_image_path);
+    await supabase.storage.from("project-files").remove(paths);
   }
   await supabase.from("project_files").delete().eq("id", fileId);
 
+  revalidatePath("/dashboard");
   revalidatePath("/files");
   revalidatePath(`/admin/projects/${projectId}`);
   redirect(`/admin/projects/${projectId}`);

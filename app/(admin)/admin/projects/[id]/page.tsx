@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Download, Eye, FileArchive, ImageIcon, Send } from "lucide-react";
+import { Download, Eye, FileArchive, Film, ImageIcon, Send } from "lucide-react";
 
 import { signAgreement } from "@/app/(portal)/agreement-actions";
 import { startAdminClientPreview } from "@/app/preview-actions";
@@ -21,10 +21,11 @@ import {
   createCalendarEvent,
   deleteCalendarEvent,
   uploadPortalSectionImage,
-  uploadProjectFile,
 } from "@/app/(admin)/admin/actions";
 import { signOut } from "@/app/auth-actions";
+import { ProjectFileUploader } from "@/components/admin/project-file-uploader";
 import { ClientPortalEditorForm } from "@/components/admin/client-portal-editor-form";
+import { VideoFileCard } from "@/components/files/video-file-card";
 import { getAgreementsByProjectId, getInvoicesByProjectId, getManualCalendarEventsByProjectId, getPortalPayloadByProjectId, getProjectById, getProjectFiles, getUserContext } from "@/lib/portal/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,8 +51,11 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
     .eq("project_id", project.id)
     .order("invited_at", { ascending: false })
     .returns<{ id: string; email: string; role: string; invitation_status: string }[]>();
+  const videoFiles = files.filter((file) => (file.mimeType ?? "").startsWith("video/"));
   const imageFiles = files.filter((file) => (file.mimeType ?? "").startsWith("image/"));
-  const documentFiles = files.filter((file) => !(file.mimeType ?? "").startsWith("image/"));
+  const documentFiles = files.filter(
+    (file) => !(file.mimeType ?? "").startsWith("image/") && !(file.mimeType ?? "").startsWith("video/"),
+  );
 
   return (
     <main className="min-h-screen bg-[#ece8df] p-6">
@@ -117,35 +121,47 @@ export default async function AdminProjectEditorPage({ params }: PageProps) {
 
         <section className="editorial-shell p-5">
           <h2 className="text-base font-semibold text-zinc-900">Files & Deliverables Library</h2>
-          <form action={uploadProjectFile.bind(null, project.id)} className="mt-3 grid gap-2 md:grid-cols-4">
-            <input name="fileName" placeholder="Display file name" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm md:col-span-2" />
-            <select name="category" className="h-9 rounded-lg border border-zinc-300 px-3 text-sm">
-              <option value="Final Deliverables">Final Deliverables</option>
-              <option value="Design Exports">Design Exports</option>
-              <option value="Brand Assets">Brand Assets</option>
-              <option value="Content Docs">Content Docs</option>
-              <option value="Wireframes">Wireframes</option>
-              <option value="Agreements">Agreements</option>
-              <option value="Invoices">Invoices</option>
-              <option value="General">General</option>
-            </select>
-            <input name="file" type="file" required className="h-9 rounded-lg border border-zinc-300 px-2 text-sm" />
-            <button className="h-9 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 md:col-span-4 md:w-fit">
-              Upload file
-            </button>
-          </form>
+          <ProjectFileUploader projectId={project.id} />
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Total files</p>
               <p className="mt-2 text-xl font-semibold text-zinc-900">{files.length}</p>
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Image assets</p>
-              <p className="mt-2 text-xl font-semibold text-zinc-900">{imageFiles.length}</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Video assets</p>
+              <p className="mt-2 text-xl font-semibold text-zinc-900">{videoFiles.length}</p>
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Documents</p>
-              <p className="mt-2 text-xl font-semibold text-zinc-900">{documentFiles.length}</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Images / docs</p>
+              <p className="mt-2 text-xl font-semibold text-zinc-900">{imageFiles.length + documentFiles.length}</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-900">
+              <Film className="h-4 w-4" />
+              Video playback
+            </div>
+            <div className="space-y-3">
+              {videoFiles.map((file) =>
+                signedMap.get(file.id) ? (
+                  <VideoFileCard
+                    key={file.id}
+                    file={file}
+                    fileUrl={signedMap.get(file.id)!}
+                    compact
+                    actions={
+                      <form action={deleteProjectFile}>
+                        <input type="hidden" name="fileId" value={file.id} />
+                        <input type="hidden" name="projectId" value={project.id} />
+                        <button className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50">
+                          Remove
+                        </button>
+                      </form>
+                    }
+                  />
+                ) : null,
+              )}
+              {!videoFiles.length ? <p className="text-sm text-zinc-500">No video files yet.</p> : null}
             </div>
           </div>
           <div className="mt-4">
